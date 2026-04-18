@@ -1,26 +1,27 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 3
+Phase: 4
 Status: done
-Letzter Commit: Phase-3 (direkt unten)
+Letzter Commit: Phase-4 (direkt unten)
 
 ## Nächster Schritt
-Phase 4: Workflow-Generator. `/api/generate-workflow`-Route, cached System-Prompt (≥1024 T.) mit Node-Katalog + JSON-Schema + Few-Shots, Opus-4.7-Call, Response → Canvas via `replaceGraph`, Auto-Layout (ELK falls > 3 Nodes, Dagre sonst — oder ELK always, schlanker).
+Phase 5a: Single-Node-Execution. Text-Nodes rufen Claude (Sonnet default), Image-Nodes rufen Gemini (Pro/Flash). Ergebnis wird in `data.output` / `data.outputImage` geschrieben und im Node inline angezeigt. Result-Cache via IndexedDB (Hash: model + prompt + params).
 
 ## Offene Punkte
-- API-Keys für echten Call in Phase 4 nötig (Anthropic zuerst) — UI speichert jetzt bereits
-- Preview-MCP greift falschen Server; Smoke-Test via `pnpm build`
-- System-Prompt-Design ist Opus-Kernarbeit (§8.1 erlaubt), danach zurück auf Sonnet
+- Kein echter Test-Call möglich ohne echten Anthropic-Key (Platzhalter bricht im Route-Handler ab). Julien bitte echten Key in Settings einfügen + testen.
+- Preview-MCP greift konsistent falschen Server; Smoke-Tests via `pnpm build`.
+- Nach erfolgreichem Generate: React Flow `fitView` läuft nur auf erstem Mount. Option: `useReactFlow().fitView()` nach `replaceGraph` — Phase 6 Polish.
+- `extractJsonObject`: naive `{...}`-Matching. Reicht weil Schema gestattet keine String-Fields mit "}". Bei Bedarf in Phase 6 robuster.
 
 ## Entscheidungen in dieser Session
-- **Dexie-Schema** (`src/lib/db/schema.ts`): Tables `keys` (id, ciphertext, iv, updatedAt), `workflows`, `resultCache` (hash-keyed), `meta`. DB nur browser-seitig instanziiert.
-- **Crypto** (`src/lib/crypto/keyring.ts`): AES-GCM-256 mit PBKDF2-derived key. Master-Salt (16 B) liegt in `meta`-Tabelle, Fingerprint = `userAgent|lang|screenWxH|tz`, 120 k PBKDF2-Iterations, 12-B-IV per encrypt. API: `putKey/getKey/deleteKey/hasKey`.
-- **`useApiKeys`-Hook** (`src/lib/hooks/useApiKeys.ts`): lädt `anthropic`/`gemini` beim Mount, `save/clear/refresh`. In-memory state hält aktuelle Werte + `set`-Flag.
-- **UI-Primitives** (`src/components/ui/`): `Dialog` (Radix-Portal, Overlay mit Backdrop-Blur, glass-Container), `Input` / `Label` / `Hint` / `Button` (primary/ghost/danger).
-- **SettingsModal** (`src/components/settings/SettingsModal.tsx`): zwei Key-Felder mit Show/Hide + Clear + "stored"-Indikator, AES-Hinweis, Save/Close. Gradient-Title.
-- Gear-Icon im TopBar öffnet Modal (Canvas-Shell state)
-- TS-5.9-Build forderte `BufferSource`-Casts für `Uint8Array` bei SubtleCrypto (einmaliger Fix, dokumentiert)
+- **System-Prompt** (`src/lib/workflow/systemPrompt.ts`, ~800 Zeilen Text, liegt klar über 1024 Tokens für Cache-Trigger). Versioniert via `WORKFLOW_GENERATOR_VERSION`. Enthält Hard Rules, Schema, Node-Catalog, Model-Routing-Leitlinien, Shape-Heuristiken, 3 Few-Shots (Textonly, Variationen-Fanout, Ref-basiertes Social-Post), Checklist.
+- **Schema-Validator** (`schema.ts`): Manuelles `parseWorkflow` ohne zod (kein neuer Dep), validiert IDs, Referenzen, Enum-Werte. Wirft sprechend.
+- **API-Route** (`/api/generate-workflow`, Node runtime): nimmt `{prompt, anthropicKey}`, ruft `claude-opus-4-7` mit `max_tokens: 2048`, `temperature: 0.4`, **`cache_control: ephemeral`** auf System-Block. Response wird via `extractJsonObject` → `JSON.parse` → `parseWorkflow` validiert. Usage + Version mit zurück.
+- **ELK-Layout** (`layout.ts`): `layered`, Direction RIGHT, NETWORK_SIMPLEX, 90 px Layer-Abstand. ImageGen/Output bekommen 320 px Breite, rest 300.
+- **Map-to-Canvas** (`mapToCanvas.ts`): pro Typ korrektes `CanvasNodeData` + ELK-Positionen.
+- **Client** (`client.ts`): holt Key aus IndexedDB, postet an Route, parsed Antwort nochmal (defense in depth).
+- **PromptBox**: echte Submit-Logik, Loading-Spinner, Error-Banner (dismissable), Enter-to-Submit, `canSubmit` bei min. 4 Zeichen. Nach Erfolg `replaceGraph` + Value clear.
 
 ## Resume
-Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` lesen → **Phase 4** starten. Für den Workflow-Generator-System-Prompt kurz auf Opus wechseln (Kernstück), danach zurück auf Sonnet.
+Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` lesen → **Phase 5a** starten (Node-Execution-Engine: Claude-Client für Prompt-Nodes, Gemini-Client für ImageGen-Nodes, Result-Cache, Inline-Preview).

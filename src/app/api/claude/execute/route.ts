@@ -48,10 +48,11 @@ export async function POST(req: NextRequest) {
     : [];
 
   try {
+    const isOpus = body.model === "claude-opus-4-7";
     const res = await client.messages.create({
       model: body.model,
       max_tokens: body.maxTokens ?? 1024,
-      temperature: body.temperature ?? 0.7,
+      ...(isOpus ? {} : { temperature: body.temperature ?? 0.7 }),
       ...(systemBlocks.length ? { system: systemBlocks } : {}),
       messages: [{ role: "user", content: `${inputsBlock}${body.prompt}` }],
     });

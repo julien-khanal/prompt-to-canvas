@@ -13,23 +13,35 @@ import { cn } from "@/lib/utils";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { generateWorkflowFromPrompt } from "@/lib/workflow/client";
 import { workflowToCanvas } from "@/lib/workflow/mapToCanvas";
+import {
+  StructuredForm,
+  buildStructuredPrompt,
+  EMPTY_STRUCTURED,
+  type StructuredValues,
+} from "./StructuredForm";
+import { humanizeError } from "@/lib/errors/humanize";
 
 type Mode = "free" | "structured";
 
 export function PromptBox() {
   const [mode, setMode] = useState<Mode>("free");
   const [value, setValue] = useState("");
+  const [structured, setStructured] = useState<StructuredValues>(EMPTY_STRUCTURED);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { replaceGraph } = useCanvasStore();
 
-  const canSubmit = value.trim().length > 3 && !loading;
+  const canSubmit = !loading && (mode === "free"
+    ? value.trim().length > 3
+    : structured.goal.trim().length > 3);
 
   const submit = async () => {
     if (!canSubmit) return;
     setLoading(true);
     setError(null);
-    const result = await generateWorkflowFromPrompt(value.trim());
+    const prompt =
+      mode === "free" ? value.trim() : buildStructuredPrompt(structured);
+    const result = await generateWorkflowFromPrompt(prompt);
     if (!result.ok) {
       setError(result.error);
       setLoading(false);
@@ -37,8 +49,19 @@ export function PromptBox() {
     }
     try {
       const { nodes, edges } = await workflowToCanvas(result.workflow);
+      if (mode === "structured" && structured.refs.length) {
+        let i = 0;
+        for (const n of nodes) {
+          if (n.data.kind === "imageRef" && i < structured.refs.length) {
+            const url = structured.refs[i++];
+            (n.data as { source: "url" | "upload"; dataUrl?: string; url?: string }).source = "upload";
+            (n.data as { dataUrl?: string }).dataUrl = url;
+          }
+        }
+      }
       replaceGraph(nodes, edges);
       setValue("");
+      setStructured(EMPTY_STRUCTURED);
     } catch (err) {
       setError(err instanceof Error ? err.message : "layout failed");
     } finally {
@@ -46,8 +69,8 @@ export function PromptBox() {
     }
   };
 
-  const onKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const onKeyDown: React.KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement> = (e) => {
+    if (e.key === "Enter" && !e.shiftKey && mode === "free") {
       e.preventDefault();
       submit();
     }
@@ -69,8 +92,8 @@ export function PromptBox() {
             exit={{ opacity: 0, y: 6 }}
             className="mb-2 flex items-center gap-2 rounded-2xl border border-[var(--color-g-red)]/30 bg-[var(--color-g-red)]/10 px-3.5 py-2 text-[12px] text-[var(--color-g-red)]"
           >
-            <AlertCircle className="h-3.5 w-3.5" />
-            <span className="flex-1">{error}</span>
+            <AlertCircle className="h-3.5 w-3.5 flex-none" />
+            <span className="flex-1" title={error}>{humanizeError(error)}</span>
             <button onClick={() => setError(null)} className="text-[10px] uppercase tracking-wider opacity-70 hover:opacity-100">
               dismiss
             </button>
@@ -78,45 +101,68 @@ export function PromptBox() {
         )}
       </AnimatePresence>
 
-      <div
+      <motion.div
+        layout
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
-          "glass relative flex items-center gap-3 px-3 py-2.5 transition-[border-radius] duration-300",
+          "glass relative flex flex-col gap-2 px-3 py-2.5",
           mode === "free" ? "rounded-full" : "rounded-3xl"
         )}
       >
-        <ModeToggle mode={mode} onChange={setMode} disabled={loading} />
+        <div className="flex items-center gap-3">
+          <ModeToggle mode={mode} onChange={setMode} disabled={loading} />
+          <AnimatePresence mode="wait" initial={false}>
+            {mode === "free" ? (
+              <motion.input
+                key="free"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={onKeyDown}
+                disabled={loading}
+                placeholder="Describe your workflow…"
+                className="flex-1 bg-transparent px-2 text-[15px] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none disabled:opacity-70"
+              />
+            ) : (
+              <motion.div
+                key="structured-goal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-1 items-center px-2 text-[13px] text-[var(--color-text-dim)]"
+              >
+                Structured mode
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <SubmitButton disabled={!canSubmit} loading={loading} onClick={submit} />
+        </div>
 
-        <AnimatePresence mode="wait" initial={false}>
-          {mode === "free" ? (
-            <motion.input
-              key="free"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={onKeyDown}
-              disabled={loading}
-              placeholder="Describe your workflow…"
-              className="flex-1 bg-transparent px-2 text-[15px] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none disabled:opacity-70"
-            />
-          ) : (
+        <AnimatePresence initial={false}>
+          {mode === "structured" && (
             <motion.div
-              key="structured"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex flex-1 items-center px-2 text-[15px] text-[var(--color-text-faint)]"
+              key="structured-form"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden"
             >
-              Structured mode — fields coming in Phase 6
+              <div className="pt-2 pb-1">
+                <StructuredForm
+                  value={structured}
+                  onChange={setStructured}
+                  disabled={loading}
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
-
-        <SubmitButton disabled={!canSubmit} loading={loading} onClick={submit} />
-      </div>
+      </motion.div>
 
       <p className="mt-2.5 text-center text-[11px] tracking-wide text-[var(--color-text-faint)]">
         Enter to generate · Workflows run on Claude Opus 4.7 with prompt caching
@@ -189,7 +235,7 @@ function SubmitButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="relative flex h-9 w-9 items-center justify-center rounded-full bg-gradient-primary text-white shadow-glow-blue transition-transform hover:scale-[1.04] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+      className="relative flex h-9 w-9 flex-none items-center justify-center rounded-full bg-gradient-primary text-white shadow-glow-blue transition-transform hover:scale-[1.04] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
       aria-label="Generate workflow"
     >
       {loading ? (

@@ -1,24 +1,27 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 5b
+Phase: 6
 Status: done
-Letzter Commit: Phase-5b (direkt unten)
+Letzter Commit: Phase-6 (direkt unten)
 
 ## Nächster Schritt
-Phase 6: Structured-Prompt-Mode (Ziel, Bildreferenzen-Upload, Stil-Presets, Zielmodell, Aspect, Varianten), Model-Dropdowns inline in Nodes (Select), Motion-Polish (ELK-Re-Layout nach Generate + `fitView`, Edge-Particles via Custom-Edge statt default-animated, Node-Entry-Stagger).
+Phase 7: README (Screenshot + 3-Schritt-Setup), Demo-Workflow als Seed beibehalten/kuratieren, finaler DoD-Smoke (#1–#10 Briefing §9 durchchecken), optional README-Polish für Vercel-Deploy.
 
 ## Offene Punkte
-- Echter End-to-End-Test steht (Keys sind eingetippt): Canvas sollte mit Run einen Flow durchziehen. Falls Gemini-Response-Format abweicht, Route `/api/gemini/execute` anpassen.
-- Preview-MCP ist global auf `telekom-dev` gelockt — lokal via `pnpm dev` manuell testen.
-- Custom-Edge mit Flow-Particles (Gemini-Signature) steht noch aus — Phase 6 Polish.
+- Flow-Particles als Custom-Edge (mehr Gemini-Signature als default `animated` Dashes) — optional-future Polish, nicht DoD-kritisch.
+- Output-Node bekommt derzeit keinen Auto-Propagation-Visual, wenn nur per Node-Run statt globalem Run ausgeführt. Kein Bug, UX-Detail.
+- Generator-Prompt v2: Variations-Heuristik geschärft (exakt N Nodes, distinct-dimension-rule). Verifizieren beim nächsten Generate mit "3 Variationen"-Prompt.
 
 ## Entscheidungen in dieser Session
-- **Store-Erweiterung**: `isRunning`-Flag, `setEdgesAnimated(ids, bool)`, `resetRunStatuses()` (setzt Nodes außer `imageRef` auf idle, clear error/edges-animated), `setRunning(v)`.
-- **`runWorkflow`** (`src/lib/executor/runWorkflow.ts`): Kahn's-Toposort → Layers. Vor Lauf: `resetRunStatuses`, setzt `isRunning=true`. Pro Layer: `Promise.all` (parallele Execution). Pro Node: Upstream-Fail-Check (wenn ein Source im `failed`-Set → Status error "upstream failed", skipped); sonst incoming-Edges animated=true, `executeNode(id)`, finally animated=false. Output: `{ok, skipped, failed}`.
-- **TopBar Run-Button**: funktional, Gradient-Success, Loader + "Running"-Label bei `isRunning`, disabled wenn running oder keine Nodes.
-- **Edge-Animation**: React-Flow-Default `animated` Prop (gestrichelter Flow). Custom-SVG-Particles kommt in Phase 6.
-- Cycle-Safety: wenn Toposort einen Rest hat (Cycle), werden die Übrigen als letzter Layer angehängt und laufen mit — pragmatisch statt strict-fail. Kann in Phase 6 strenger werden.
+- **fitView-on-replace**: `graphVersion` im Store, incrementiert in `replaceGraph`. `Canvas` watched `graphVersion` → `fitView({padding: 0.2, duration: 650})` nach 80 ms.
+- **`humanizeError`** (`src/lib/errors/humanize.ts`): Extrahiert `message` aus `{error: {...}}` / `{message}` JSON-Shapes, verdichtet Quota/Rate-Limit-Wälle auf 1 Zeile ("Quota/rate limit exceeded — check plan & billing"), Rest auf 240 Zeichen. Volle Raw-Message via `title`-Attribut auf Hover.
+- **Inline Model-Dropdowns**: Neue `NativeSelect` (`src/components/ui/select.tsx`, Glass-Pill mit Chevron, native `<select>` styled). Verdrahtet in `PromptNode` (Sonnet/Opus/Haiku) + `ImageGenNode` (Pro/Flash). Ändern → `patchNodeData({model, cacheHit: false})` — invalidiert Cache-Chip automatisch.
+- **StructuredForm** (`src/components/prompt/StructuredForm.tsx`): Goal-Textarea, Style-Chips (Cinematic/Minimal/Editorial/Photographic/Illustrative), Aspect-Chips (1:1/16:9/9:16/4:3), Target-Model-Chips (Pro/Flash), Variants-Stepper (1–4), Reference-Image-Uploads (drag-to-add, Preview, X-Remove, max 14), Collapsible Constraints. `buildStructuredPrompt(v)` → natural-language prompt für den selben Generator.
+- **PromptBox** verdrahtet StructuredForm: `layout`-Motion, Height-Animation beim Expand. Reference-DataURLs werden nach `replaceGraph` in die generierten `imageRef`-Nodes injiziert (`source: "upload"`, `dataUrl`).
+- **Generator v2** (`WORKFLOW_GENERATOR_VERSION = "2026-04-18-v2"`): Variations-Heuristik verschärft — "exactly N separate imageGen nodes", distinct-dimension-rule (Komposition/Licht/Winkel/Palette/Framing), Default 3 wenn "a few"/"options" implied.
+- **Node-Entry-Stagger**: `BaseNode` ist jetzt `motion.div` mit `initial/animate` (opacity 0→1, y 8→0, scale 0.97→1, 450 ms easeOutQuart).
+- TS-Fix: `size` in Props collidiert mit `SelectHTMLAttributes.size: number` → umbenannt auf `density`.
 
 ## Resume
-Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` → **Phase 6** (Structured-Prompt, Model-Dropdowns, Motion-Polish, Custom Particle-Edges).
+Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` → **Phase 7** (README, Demo-Seed-Workflow, DoD-Smoke durchgehen).

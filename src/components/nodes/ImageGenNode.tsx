@@ -2,10 +2,22 @@
 
 import type { NodeProps } from "@xyflow/react";
 import { BaseNode, NodeChip, NodeFieldRow } from "./BaseNode";
-import type { CanvasNode, ImageGenNodeData } from "@/lib/canvas/types";
+import { NativeSelect } from "@/components/ui/select";
+import { useCanvasStore } from "@/lib/canvas/store";
+import type {
+  CanvasNode,
+  GeminiImageModel,
+  ImageGenNodeData,
+} from "@/lib/canvas/types";
+
+const MODEL_OPTIONS: { value: GeminiImageModel; label: string }[] = [
+  { value: "gemini-3-pro-image-preview", label: "Nano Banana Pro" },
+  { value: "gemini-2.5-flash-image", label: "Nano Banana" },
+];
 
 export function ImageGenNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const d = data as ImageGenNodeData;
+  const patch = useCanvasStore((s) => s.patchNodeData);
   return (
     <BaseNode
       id={id}
@@ -20,7 +32,13 @@ export function ImageGenNode({ id, data, selected }: NodeProps<CanvasNode>) {
       error={d.error}
     >
       <NodeFieldRow label="Model">
-        {d.model === "gemini-3-pro-image-preview" ? "Nano Banana Pro" : "Nano Banana"}
+        <NativeSelect
+          value={d.model}
+          onValueChange={(v) =>
+            patch<ImageGenNodeData>(id, { model: v, cacheHit: false })
+          }
+          options={MODEL_OPTIONS}
+        />
       </NodeFieldRow>
       <div className="flex items-center gap-1.5">
         <NodeChip>{d.aspectRatio}</NodeChip>

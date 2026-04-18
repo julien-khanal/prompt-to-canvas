@@ -15,6 +15,7 @@ interface CanvasState {
   nodes: CanvasNode[];
   edges: CanvasEdge[];
   isRunning: boolean;
+  graphVersion: number;
   onNodesChange: (changes: NodeChange<CanvasNode>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -32,6 +33,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   nodes: [],
   edges: [],
   isRunning: false,
+  graphVersion: 0,
   onNodesChange: (changes) =>
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
   onEdgesChange: (changes) =>
@@ -40,7 +42,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set((s) => ({ edges: addEdge({ ...connection, animated: false }, s.edges) })),
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
-  replaceGraph: (nodes, edges) => set({ nodes, edges }),
+  replaceGraph: (nodes, edges) =>
+    set((s) => ({ nodes, edges, graphVersion: s.graphVersion + 1 })),
   patchNodeData: (id, patch) =>
     set((s) => ({
       nodes: s.nodes.map((n) =>

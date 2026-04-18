@@ -8,6 +8,7 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCanvasStore } from "@/lib/canvas/store";
@@ -17,10 +18,20 @@ import { seedEdges, seedNodes } from "@/lib/canvas/seed";
 function CanvasInner() {
   const { nodes, edges, onNodesChange, onEdgesChange, onConnect, replaceGraph } =
     useCanvasStore();
+  const graphVersion = useCanvasStore((s) => s.graphVersion);
+  const { fitView } = useReactFlow();
 
   useEffect(() => {
     if (nodes.length === 0) replaceGraph(seedNodes, seedEdges);
   }, [nodes.length, replaceGraph]);
+
+  useEffect(() => {
+    if (graphVersion === 0) return;
+    const t = setTimeout(() => {
+      fitView({ padding: 0.2, duration: 650 });
+    }, 80);
+    return () => clearTimeout(t);
+  }, [graphVersion, fitView]);
 
   return (
     <ReactFlow

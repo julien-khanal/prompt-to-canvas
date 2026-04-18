@@ -2,9 +2,11 @@
 
 import { Handle, Position } from "@xyflow/react";
 import { Loader2, Play, Sparkles } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { NodeStatus } from "@/lib/canvas/types";
 import { executeNode } from "@/lib/executor/executeNode";
+import { humanizeError } from "@/lib/errors/humanize";
 
 interface BaseNodeProps {
   id?: string;
@@ -46,7 +48,10 @@ export function BaseNode({
   error,
 }: BaseNodeProps) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
       style={{ width }}
       className={cn(
         "glass group relative overflow-hidden rounded-2xl text-[var(--color-text)] transition-all",
@@ -85,8 +90,11 @@ export function BaseNode({
       {children && <div className="px-4 pb-3 space-y-2.5 text-[12px]">{children}</div>}
 
       {error && (
-        <div className="mx-4 mb-3 rounded-lg border border-[var(--color-g-red)]/30 bg-[var(--color-g-red)]/10 px-2.5 py-1.5 text-[11px] text-[var(--color-g-red)]">
-          {error}
+        <div
+          className="mx-4 mb-3 rounded-lg border border-[var(--color-g-red)]/30 bg-[var(--color-g-red)]/10 px-2.5 py-1.5 text-[11px] leading-snug text-[var(--color-g-red)]"
+          title={error}
+        >
+          {humanizeError(error)}
         </div>
       )}
 
@@ -111,7 +119,7 @@ export function BaseNode({
           className="!h-3 !w-3 !border-2 !border-[#0A0A0F] !bg-[var(--color-g-coral)]"
         />
       )}
-    </div>
+    </motion.div>
   );
 }
 

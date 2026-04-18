@@ -4,10 +4,11 @@ import type { NodeProps } from "@xyflow/react";
 import { BaseNode, NodeChip, NodeFieldRow } from "./BaseNode";
 import type { CanvasNode, ImageGenNodeData } from "@/lib/canvas/types";
 
-export function ImageGenNode({ data, selected }: NodeProps<CanvasNode>) {
+export function ImageGenNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const d = data as ImageGenNodeData;
   return (
     <BaseNode
+      id={id}
       title={d.label}
       subtitle="Image · Gemini"
       status={d.status}
@@ -15,6 +16,8 @@ export function ImageGenNode({ data, selected }: NodeProps<CanvasNode>) {
       cacheHit={d.cacheHit}
       selected={selected}
       width={312}
+      runnable
+      error={d.error}
     >
       <NodeFieldRow label="Model">
         {d.model === "gemini-3-pro-image-preview" ? "Nano Banana Pro" : "Nano Banana"}

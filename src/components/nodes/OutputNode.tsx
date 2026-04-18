@@ -5,8 +5,9 @@ import { Download } from "lucide-react";
 import { BaseNode } from "./BaseNode";
 import type { CanvasNode, OutputNodeData } from "@/lib/canvas/types";
 
-export function OutputNode({ data, selected }: NodeProps<CanvasNode>) {
+export function OutputNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const d = data as OutputNodeData;
+  void id;
   const hasAny = !!(d.text || (d.images && d.images.length));
   return (
     <BaseNode

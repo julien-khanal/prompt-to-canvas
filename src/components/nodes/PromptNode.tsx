@@ -4,16 +4,19 @@ import type { NodeProps } from "@xyflow/react";
 import { BaseNode, NodeFieldRow } from "./BaseNode";
 import type { CanvasNode, PromptNodeData } from "@/lib/canvas/types";
 
-export function PromptNode({ data, selected }: NodeProps<CanvasNode>) {
+export function PromptNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const d = data as PromptNodeData;
   return (
     <BaseNode
+      id={id}
       title={d.label}
       subtitle="Text · Claude"
       status={d.status}
       accent="secondary"
       cacheHit={d.cacheHit}
       selected={selected}
+      runnable
+      error={d.error}
     >
       <NodeFieldRow label="Model">{d.model}</NodeFieldRow>
       <NodeFieldRow label="Temp">{d.temperature.toFixed(2)}</NodeFieldRow>

@@ -1,11 +1,13 @@
 "use client";
 
 import { Handle, Position } from "@xyflow/react";
-import { Sparkles } from "lucide-react";
+import { Loader2, Play, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NodeStatus } from "@/lib/canvas/types";
+import { executeNode } from "@/lib/executor/executeNode";
 
 interface BaseNodeProps {
+  id?: string;
   title: string;
   subtitle?: string;
   status: NodeStatus;
@@ -17,6 +19,8 @@ interface BaseNodeProps {
   cacheHit?: boolean;
   selected?: boolean;
   width?: number;
+  runnable?: boolean;
+  error?: string;
 }
 
 const ACCENT_CLASS: Record<NonNullable<BaseNodeProps["accent"]>, string> = {
@@ -26,6 +30,7 @@ const ACCENT_CLASS: Record<NonNullable<BaseNodeProps["accent"]>, string> = {
 };
 
 export function BaseNode({
+  id,
   title,
   subtitle,
   status,
@@ -37,6 +42,8 @@ export function BaseNode({
   cacheHit,
   selected,
   width = 288,
+  runnable,
+  error,
 }: BaseNodeProps) {
   return (
     <div
@@ -76,7 +83,19 @@ export function BaseNode({
       </div>
 
       {children && <div className="px-4 pb-3 space-y-2.5 text-[12px]">{children}</div>}
-      {footer && <div className="border-t border-white/5 px-4 py-2.5">{footer}</div>}
+
+      {error && (
+        <div className="mx-4 mb-3 rounded-lg border border-[var(--color-g-red)]/30 bg-[var(--color-g-red)]/10 px-2.5 py-1.5 text-[11px] text-[var(--color-g-red)]">
+          {error}
+        </div>
+      )}
+
+      {(footer || (runnable && id)) && (
+        <div className="flex items-center justify-between gap-2 border-t border-white/5 px-4 py-2.5">
+          <div className="flex-1 min-w-0">{footer}</div>
+          {runnable && id && <RunButton nodeId={id} status={status} />}
+        </div>
+      )}
 
       {showInputHandle && (
         <Handle
@@ -129,6 +148,33 @@ export function NodeFieldRow({ label, children }: { label: string; children: Rea
       </span>
       <span className="truncate text-[12px] text-[var(--color-text-dim)]">{children}</span>
     </div>
+  );
+}
+
+function RunButton({ nodeId, status }: { nodeId: string; status: NodeStatus }) {
+  const running = status === "running";
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!running) void executeNode(nodeId);
+      }}
+      disabled={running}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-all",
+        running
+          ? "bg-white/[0.06] text-[var(--color-text-faint)]"
+          : "bg-gradient-primary text-white hover:brightness-110 active:brightness-95 shadow-glow-blue"
+      )}
+      aria-label="Run node"
+    >
+      {running ? (
+        <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.4} />
+      ) : (
+        <Play className="h-3 w-3 fill-current" strokeWidth={0} />
+      )}
+      {running ? "Running" : "Run"}
+    </button>
   );
 }
 

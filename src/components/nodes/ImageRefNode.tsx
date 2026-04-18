@@ -5,8 +5,9 @@ import { ImageIcon } from "lucide-react";
 import { BaseNode, NodeFieldRow } from "./BaseNode";
 import type { CanvasNode, ImageRefNodeData } from "@/lib/canvas/types";
 
-export function ImageRefNode({ data, selected }: NodeProps<CanvasNode>) {
+export function ImageRefNode({ id, data, selected }: NodeProps<CanvasNode>) {
   const d = data as ImageRefNodeData;
+  void id;
   const preview = d.dataUrl || d.url;
   return (
     <BaseNode

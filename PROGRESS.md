@@ -1,25 +1,26 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 2
+Phase: 3
 Status: done
-Letzter Commit: f483bbe (Phase 1) — Phase-2-Commit folgt
+Letzter Commit: Phase-3 (direkt unten)
 
 ## Nächster Schritt
-Phase 3: Settings-Modal + IndexedDB-Persistence via Dexie + AES-GCM-Verschlüsselung für API-Keys (Anthropic + Gemini), Gear-Icon top-right aktiviert.
+Phase 4: Workflow-Generator. `/api/generate-workflow`-Route, cached System-Prompt (≥1024 T.) mit Node-Katalog + JSON-Schema + Few-Shots, Opus-4.7-Call, Response → Canvas via `replaceGraph`, Auto-Layout (ELK falls > 3 Nodes, Dagre sonst — oder ELK always, schlanker).
 
 ## Offene Punkte
-- Preview-MCP greift konsistent den falschen Server (telekom-dev) — Smoke-Tests laufen via `pnpm build` (TS + static gen grün). Für visuelle Reviews: `cd prompt-canvas && pnpm dev` manuell.
-- Run-Button + Settings-Button sind im TopBar platziert, aber disabled (aktiv ab Phase 5 / 3)
-- API-Keys weiterhin Platzhalter (.env.local)
+- API-Keys für echten Call in Phase 4 nötig (Anthropic zuerst) — UI speichert jetzt bereits
+- Preview-MCP greift falschen Server; Smoke-Test via `pnpm build`
+- System-Prompt-Design ist Opus-Kernarbeit (§8.1 erlaubt), danach zurück auf Sonnet
 
 ## Entscheidungen in dieser Session
-- Canvas-State via Zustand-Store (`useCanvasStore`): `nodes`, `edges`, `onNodesChange/onEdgesChange/onConnect`, `replaceGraph`, `patchNodeData`, `setNodeStatus`
-- Node-Typen-Hierarchie: `BaseNode` (glass-card, gradient header-stripe, sparkle-badge, StatusDot mit animated ping bei running, cache-chip, left/right Handles) + 4 Specialisierungen (`PromptNode`, `ImageGenNode`, `ImageRefNode`, `OutputNode`)
-- Edges: SVG-linearGradient `#edge-gradient` (blue→purple→coral), 1.5 px
-- Dot-Grid-Background (28 px, white/18%) + bestehender Radial-Ambient
-- `nodeTypes`-Map in `src/components/nodes/index.ts`
-- Seed-Graph: Prompt → ImageGen ← ImageRef → Output (auf Canvas-Init geladen, bleibt offline sinnvoll)
+- **Dexie-Schema** (`src/lib/db/schema.ts`): Tables `keys` (id, ciphertext, iv, updatedAt), `workflows`, `resultCache` (hash-keyed), `meta`. DB nur browser-seitig instanziiert.
+- **Crypto** (`src/lib/crypto/keyring.ts`): AES-GCM-256 mit PBKDF2-derived key. Master-Salt (16 B) liegt in `meta`-Tabelle, Fingerprint = `userAgent|lang|screenWxH|tz`, 120 k PBKDF2-Iterations, 12-B-IV per encrypt. API: `putKey/getKey/deleteKey/hasKey`.
+- **`useApiKeys`-Hook** (`src/lib/hooks/useApiKeys.ts`): lädt `anthropic`/`gemini` beim Mount, `save/clear/refresh`. In-memory state hält aktuelle Werte + `set`-Flag.
+- **UI-Primitives** (`src/components/ui/`): `Dialog` (Radix-Portal, Overlay mit Backdrop-Blur, glass-Container), `Input` / `Label` / `Hint` / `Button` (primary/ghost/danger).
+- **SettingsModal** (`src/components/settings/SettingsModal.tsx`): zwei Key-Felder mit Show/Hide + Clear + "stored"-Indikator, AES-Hinweis, Save/Close. Gradient-Title.
+- Gear-Icon im TopBar öffnet Modal (Canvas-Shell state)
+- TS-5.9-Build forderte `BufferSource`-Casts für `Uint8Array` bei SubtleCrypto (einmaliger Fix, dokumentiert)
 
 ## Resume
-Nächste Session: `claude` starten → `/model sonnet` → `PROGRESS.md` lesen → **Phase 3** starten (Dexie-Schema + AES-GCM-Wrapper + Settings-Modal).
+Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` lesen → **Phase 4** starten. Für den Workflow-Generator-System-Prompt kurz auf Opus wechseln (Kernstück), danach zurück auf Sonnet.

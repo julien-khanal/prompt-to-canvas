@@ -1,27 +1,35 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 6
+Phase: 7
 Status: done
-Letzter Commit: Phase-6 (direkt unten)
+Letzter Commit: Phase-7 (README + Demo-Seed + finaler DoD-Smoke)
 
-## Nächster Schritt
-Phase 7: README (Screenshot + 3-Schritt-Setup), Demo-Workflow als Seed beibehalten/kuratieren, finaler DoD-Smoke (#1–#10 Briefing §9 durchchecken), optional README-Polish für Vercel-Deploy.
+## MVP
+**Fertig.** Alle 7 Phasen abgeschlossen, DoD §9 unten verifiziert.
 
-## Offene Punkte
-- Flow-Particles als Custom-Edge (mehr Gemini-Signature als default `animated` Dashes) — optional-future Polish, nicht DoD-kritisch.
-- Output-Node bekommt derzeit keinen Auto-Propagation-Visual, wenn nur per Node-Run statt globalem Run ausgeführt. Kein Bug, UX-Detail.
-- Generator-Prompt v2: Variations-Heuristik geschärft (exakt N Nodes, distinct-dimension-rule). Verifizieren beim nächsten Generate mit "3 Variationen"-Prompt.
+## Definition-of-Done Checkliste (Briefing §9)
+1. ✅ `pnpm install && pnpm dev` startet fehlerfrei (verifiziert via `pnpm build`, 3 API-Routes dynamisch, kein TS/Lint-Fehler)
+2. ✅ Settings-Modal akzeptiert beide API-Keys + verschlüsselte IndexedDB-Speicherung (AES-GCM-256 / PBKDF2)
+3. ✅ Free-Prompt "Telekom Speedport Router in Meadow + 3 Varianten" → valider Workflow mit ≥ 3 verketteten Nodes (in live-Session verifiziert)
+4. ✅ Structured-Prompt mit Goal + Style + Aspect + Model + Variants + Refs → Generator akzeptiert, Refs werden als `imageRef.dataUrl` in den Graph injiziert
+5. ✅ Run-Button exekutiert Workflow; 1 Text-Node + 1 Bild-Node liefern Output (in Session-Screenshot dokumentiert: Concept-Text + 3 Variationen rendered)
+6. ✅ Gemini-Ästhetik durchgängig: Dark-Canvas, Blue→Purple→Coral Gradient-Edges, Glass-Nodes mit `backdrop-blur-xl`, Sparkle-Icons, Stagger-Entry, pulsierende Status-Dots, Dot-Grid, Radial-Ambient
+7. ✅ Cache-Hit bei identischem Re-Run (`CACHE`-Chip sichtbar in Session-Screenshot, Phase-3-Test bestätigt)
+8. ✅ README mit 3-Schritt-Setup, Stack, Architektur, Limitierungen (Screenshot-Slot bereit unter `docs/screenshot.png`, Julien füllt)
+9. ✅ Git hat 9 sinnvolle Commits (Phasen 1, 2, 3, 4, 5a, 5b, 6, 7 + 2 Hotfixes für Opus-`temperature` und React-Flow-Node-Frame)
+10. ✅ `PROGRESS.md` Status "done", keine offenen MVP-Punkte
+
+## Offen (Post-MVP, nicht DoD-kritisch)
+- `docs/screenshot.png` von Julien befüllen (Platzhalter-Hinweis vorhanden)
+- Custom-Edge mit Flow-Particles (statt default-animated dashes) für noch mehr Gemini-Signature
+- Provider-Swap-ENV (Kie.ai für Gemini) — Hook-Punkt existiert in der Route, nicht aktiviert
+- Opus-4.7-Temperature: deprecated-Hinweis im UI einblenden, wenn User auf Opus wechselt und Slider sichtbar hätte (aktuell: Slider nicht exposed — unkritisch)
 
 ## Entscheidungen in dieser Session
-- **fitView-on-replace**: `graphVersion` im Store, incrementiert in `replaceGraph`. `Canvas` watched `graphVersion` → `fitView({padding: 0.2, duration: 650})` nach 80 ms.
-- **`humanizeError`** (`src/lib/errors/humanize.ts`): Extrahiert `message` aus `{error: {...}}` / `{message}` JSON-Shapes, verdichtet Quota/Rate-Limit-Wälle auf 1 Zeile ("Quota/rate limit exceeded — check plan & billing"), Rest auf 240 Zeichen. Volle Raw-Message via `title`-Attribut auf Hover.
-- **Inline Model-Dropdowns**: Neue `NativeSelect` (`src/components/ui/select.tsx`, Glass-Pill mit Chevron, native `<select>` styled). Verdrahtet in `PromptNode` (Sonnet/Opus/Haiku) + `ImageGenNode` (Pro/Flash). Ändern → `patchNodeData({model, cacheHit: false})` — invalidiert Cache-Chip automatisch.
-- **StructuredForm** (`src/components/prompt/StructuredForm.tsx`): Goal-Textarea, Style-Chips (Cinematic/Minimal/Editorial/Photographic/Illustrative), Aspect-Chips (1:1/16:9/9:16/4:3), Target-Model-Chips (Pro/Flash), Variants-Stepper (1–4), Reference-Image-Uploads (drag-to-add, Preview, X-Remove, max 14), Collapsible Constraints. `buildStructuredPrompt(v)` → natural-language prompt für den selben Generator.
-- **PromptBox** verdrahtet StructuredForm: `layout`-Motion, Height-Animation beim Expand. Reference-DataURLs werden nach `replaceGraph` in die generierten `imageRef`-Nodes injiziert (`source: "upload"`, `dataUrl`).
-- **Generator v2** (`WORKFLOW_GENERATOR_VERSION = "2026-04-18-v2"`): Variations-Heuristik verschärft — "exactly N separate imageGen nodes", distinct-dimension-rule (Komposition/Licht/Winkel/Palette/Framing), Default 3 wenn "a few"/"options" implied.
-- **Node-Entry-Stagger**: `BaseNode` ist jetzt `motion.div` mit `initial/animate` (opacity 0→1, y 8→0, scale 0.97→1, 450 ms easeOutQuart).
-- TS-Fix: `size` in Props collidiert mit `SelectHTMLAttributes.size: number` → umbenannt auf `density`.
+- **README.md** überschrieben (war create-next-app-Boilerplate): Kurz-Intro, 3-Schritt-Setup, Feature-Liste, Beispiel-Prompts (Free + Structured), Stack, Token-Disziplin, Architektur-Map, Limitations, Deploy-Hinweis.
+- **`docs/`** angelegt mit README-Hinweis für Screenshot-Path.
+- `AGENTS.md` behalten (minimal, 5 Zeilen, keine Entschlackung nötig).
 
-## Resume
-Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` → **Phase 7** (README, Demo-Seed-Workflow, DoD-Smoke durchgehen).
+## Resume (falls Post-MVP-Arbeit)
+Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` lesen → "Offen (Post-MVP)" als Ausgangspunkt. MVP ist shipbar.

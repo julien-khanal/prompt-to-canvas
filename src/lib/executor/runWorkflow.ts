@@ -1,0 +1,103 @@
+"use client";
+
+import { useCanvasStore } from "@/lib/canvas/store";
+import { executeNode } from "./executeNode";
+import type { CanvasEdge, CanvasNode } from "@/lib/canvas/types";
+
+export interface RunOutcome {
+  ok: boolean;
+  skipped: string[];
+  failed: string[];
+}
+
+export async function runWorkflow(): Promise<RunOutcome> {
+  const store = useCanvasStore.getState();
+  if (store.isRunning) return { ok: false, skipped: [], failed: [] };
+  if (!store.nodes.length) return { ok: true, skipped: [], failed: [] };
+
+  store.setRunning(true);
+  store.resetRunStatuses();
+
+  const failed = new Set<string>();
+  const skipped: string[] = [];
+
+  try {
+    const layers = topoLayers(
+      useCanvasStore.getState().nodes,
+      useCanvasStore.getState().edges
+    );
+    for (const layer of layers) {
+      await Promise.all(
+        layer.map((id) =>
+          executeOne(id, failed).then((result) => {
+            if (result === "skipped") skipped.push(id);
+            else if (result === "failed") failed.add(id);
+          })
+        )
+      );
+    }
+    return { ok: failed.size === 0, skipped, failed: [...failed] };
+  } finally {
+    useCanvasStore.getState().setRunning(false);
+  }
+}
+
+type ExecResult = "done" | "failed" | "skipped";
+
+async function executeOne(id: string, failed: Set<string>): Promise<ExecResult> {
+  const state = useCanvasStore.getState();
+  const incoming = state.edges.filter((e) => e.target === id);
+
+  const upstreamFailed = incoming.some((e) => failed.has(e.source));
+  if (upstreamFailed) {
+    state.setNodeStatus(id, "error", "upstream failed");
+    return "skipped";
+  }
+
+  const incomingIds = incoming.map((e) => e.id);
+  state.setEdgesAnimated(incomingIds, true);
+
+  try {
+    const outcome = await executeNode(id);
+    return outcome.ok ? "done" : "failed";
+  } finally {
+    useCanvasStore.getState().setEdgesAnimated(incomingIds, false);
+  }
+}
+
+function topoLayers(nodes: CanvasNode[], edges: CanvasEdge[]): string[][] {
+  const inDegree = new Map<string, number>();
+  const outgoing = new Map<string, string[]>();
+  for (const n of nodes) {
+    inDegree.set(n.id, 0);
+    outgoing.set(n.id, []);
+  }
+  for (const e of edges) {
+    if (!inDegree.has(e.target) || !outgoing.has(e.source)) continue;
+    inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
+    outgoing.get(e.source)!.push(e.target);
+  }
+
+  const layers: string[][] = [];
+  let current = nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0).map((n) => n.id);
+  const visited = new Set<string>();
+
+  while (current.length) {
+    layers.push(current);
+    current.forEach((id) => visited.add(id));
+    const next: string[] = [];
+    for (const id of current) {
+      for (const nxt of outgoing.get(id) ?? []) {
+        const d = (inDegree.get(nxt) ?? 0) - 1;
+        inDegree.set(nxt, d);
+        if (d === 0 && !visited.has(nxt)) next.push(nxt);
+      }
+    }
+    current = next;
+  }
+
+  const missing = nodes.filter((n) => !visited.has(n.id)).map((n) => n.id);
+  if (missing.length) layers.push(missing);
+
+  return layers;
+}

@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Settings } from "lucide-react";
+import { Loader2, Play, Settings } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { useCanvasStore } from "@/lib/canvas/store";
+import { runWorkflow } from "@/lib/executor/runWorkflow";
+import { cn } from "@/lib/utils";
 
 export function CanvasShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -17,6 +20,8 @@ export function CanvasShell() {
 }
 
 function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const isRunning = useCanvasStore((s) => s.isRunning);
+  const hasNodes = useCanvasStore((s) => s.nodes.length > 0);
   return (
     <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-6 py-4">
       <div className="pointer-events-auto flex items-center gap-2">
@@ -27,10 +32,24 @@ function TopBar({ onOpenSettings }: { onOpenSettings: () => void }) {
       </div>
       <div className="pointer-events-auto flex items-center gap-2">
         <button
-          disabled
-          className="inline-flex items-center gap-1.5 rounded-full bg-gradient-success px-4 py-1.5 text-xs font-medium text-white opacity-70"
+          onClick={() => runWorkflow()}
+          disabled={isRunning || !hasNodes}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50",
+            "bg-gradient-success shadow-glow-blue hover:brightness-110 active:brightness-95"
+          )}
         >
-          Run (soon)
+          {isRunning ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.4} />
+              Running
+            </>
+          ) : (
+            <>
+              <Play className="h-3 w-3 fill-current" strokeWidth={0} />
+              Run
+            </>
+          )}
         </button>
         <button
           onClick={onOpenSettings}

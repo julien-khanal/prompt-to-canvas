@@ -11,7 +11,7 @@ import type {
   CanvasNode,
   ClaudeModel,
   DisabledMode,
-  GeminiImageModel,
+  ImageGenModel,
   ImageGenNodeData,
   ImageRefNodeData,
   ImageResolution,
@@ -26,9 +26,12 @@ const CLAUDE_MODELS: { value: ClaudeModel; label: string }[] = [
   { value: "claude-haiku-4-5", label: "Haiku 4.5" },
 ];
 
-const GEMINI_MODELS: { value: GeminiImageModel; label: string }[] = [
+const IMAGE_MODELS: { value: ImageGenModel; label: string }[] = [
   { value: "gemini-3-pro-image-preview", label: "Nano Banana Pro" },
   { value: "gemini-2.5-flash-image", label: "Nano Banana (Flash)" },
+  { value: "fal-flux-schnell", label: "Flux Schnell (fal)" },
+  { value: "fal-flux-dev", label: "Flux Dev (fal)" },
+  { value: "fal-flux-pro", label: "Flux Pro (fal)" },
 ];
 
 const ASPECTS: { value: AspectRatio; label: string }[] = [
@@ -574,9 +577,41 @@ function ImageGenBody({
           density="sm"
           value={data.model}
           onValueChange={(model) => onPatch({ model, cacheHit: false })}
-          options={GEMINI_MODELS}
+          options={IMAGE_MODELS}
         />
       </LabeledField>
+      {data.model.startsWith("fal-flux-") && (
+        <>
+          <LabeledField
+            label="LoRA URL"
+            hint="Optional · paste the .safetensors URL from fal.ai or Hugging Face"
+          >
+            <TextInput
+              value={data.loraUrl ?? ""}
+              onChange={(v) => onPatch({ loraUrl: v || undefined, cacheHit: false })}
+              placeholder="https://…/my-style.safetensors"
+            />
+          </LabeledField>
+          {data.loraUrl && (
+            <LabeledField label="LoRA strength" hint={`${(data.loraStrength ?? 1).toFixed(2)}`}>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.05"
+                value={data.loraStrength ?? 1}
+                onChange={(e) =>
+                  onPatch({
+                    loraStrength: parseFloat(e.target.value),
+                    cacheHit: false,
+                  })
+                }
+                className="nodrag w-full accent-[var(--color-g-blue)]"
+              />
+            </LabeledField>
+          )}
+        </>
+      )}
       <LabeledField label="Prompt">
         <Textarea
           value={data.prompt}

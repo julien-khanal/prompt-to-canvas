@@ -24,7 +24,9 @@ export function SettingsModal({ open, onOpenChange }: Props) {
   const [gemini, setGemini] = useState("");
   const [showAnth, setShowAnth] = useState(false);
   const [showGem, setShowGem] = useState(false);
+  const [showFal, setShowFal] = useState(false);
   const [showCowork, setShowCowork] = useState(false);
+  const [fal, setFal] = useState("");
   const [coworkSecret, setCoworkSecretLocal] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -33,14 +35,19 @@ export function SettingsModal({ open, onOpenChange }: Props) {
     if (open && !loading) {
       setAnthropic(state.anthropic.value);
       setGemini(state.gemini.value);
+      setFal(state.fal.value);
       setCoworkSecretLocal(getCoworkSecret() ?? "");
       setSaved(false);
     }
-  }, [open, loading, state.anthropic.value, state.gemini.value]);
+  }, [open, loading, state.anthropic.value, state.gemini.value, state.fal.value]);
 
   const onSave = async () => {
     setSaving(true);
-    await Promise.all([save("anthropic", anthropic), save("gemini", gemini)]);
+    await Promise.all([
+      save("anthropic", anthropic),
+      save("gemini", gemini),
+      save("fal", fal),
+    ]);
     setCoworkSecret(coworkSecret);
     setSaving(false);
     setSaved(true);
@@ -89,6 +96,18 @@ export function SettingsModal({ open, onOpenChange }: Props) {
             isSet={state.gemini.set}
             onClear={() => onClear("gemini")}
             hint="Used for Nano Banana (Pro / Flash) image generation."
+          />
+
+          <KeyField
+            label="fal.ai API key (optional)"
+            placeholder="fal_…"
+            value={fal}
+            onChange={setFal}
+            show={showFal}
+            onToggleShow={() => setShowFal((v) => !v)}
+            isSet={state.fal.set}
+            onClear={() => onClear("fal")}
+            hint="Required to use Flux Schnell/Dev/Pro models and custom LoRAs in ImageGen nodes."
           />
 
           <div className="flex items-center gap-2 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 text-[11.5px] text-[var(--color-text-faint)]">

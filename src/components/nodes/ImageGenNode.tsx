@@ -6,13 +6,16 @@ import { NativeSelect } from "@/components/ui/select";
 import { useCanvasStore } from "@/lib/canvas/store";
 import type {
   CanvasNode,
-  GeminiImageModel,
+  ImageGenModel,
   ImageGenNodeData,
 } from "@/lib/canvas/types";
 
-const MODEL_OPTIONS: { value: GeminiImageModel; label: string }[] = [
+const MODEL_OPTIONS: { value: ImageGenModel; label: string }[] = [
   { value: "gemini-3-pro-image-preview", label: "Nano Banana Pro" },
   { value: "gemini-2.5-flash-image", label: "Nano Banana" },
+  { value: "fal-flux-schnell", label: "Flux Schnell (fal)" },
+  { value: "fal-flux-dev", label: "Flux Dev (fal)" },
+  { value: "fal-flux-pro", label: "Flux Pro (fal)" },
 ];
 
 export function ImageGenNode({ id, data, selected }: NodeProps<CanvasNode>) {
@@ -41,6 +44,14 @@ export function ImageGenNode({ id, data, selected }: NodeProps<CanvasNode>) {
           options={MODEL_OPTIONS}
         />
       </NodeFieldRow>
+      {d.loraUrl && (
+        <NodeFieldRow label="LoRA">
+          <span className="truncate font-mono text-[10.5px]">
+            {d.loraUrl.split("/").slice(-1)[0]?.slice(0, 18) ?? "set"}
+            {d.loraStrength !== undefined && ` · ${d.loraStrength.toFixed(2)}`}
+          </span>
+        </NodeFieldRow>
+      )}
       <div className="flex items-center gap-1.5">
         <NodeChip>{d.aspectRatio}</NodeChip>
         <NodeChip>{d.resolution}</NodeChip>

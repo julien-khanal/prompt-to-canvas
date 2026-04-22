@@ -123,19 +123,24 @@ export function PromptBox() {
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={onKeyDown}
                 disabled={loading}
-                placeholder="Describe your workflow…"
+                placeholder="Describe your workflow in natural language…"
                 className="flex-1 bg-transparent px-2 text-[15px] text-[var(--color-text)] placeholder:text-[var(--color-text-faint)] focus:outline-none disabled:opacity-70"
               />
             ) : (
               <motion.div
-                key="structured-goal"
+                key="structured-heading"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="flex flex-1 items-center px-2 text-[13px] text-[var(--color-text-dim)]"
+                className="flex flex-1 flex-col justify-center px-2 leading-tight"
               >
-                Structured mode
+                <span className="text-[13px] font-medium text-[var(--color-text)]">
+                  Structured brief
+                </span>
+                <span className="text-[11px] text-[var(--color-text-faint)]">
+                  Fields below compose the prompt for the generator.
+                </span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -165,7 +170,9 @@ export function PromptBox() {
       </motion.div>
 
       <p className="mt-2.5 text-center text-[11px] tracking-wide text-[var(--color-text-faint)]">
-        Enter to generate · Workflows run on Claude Opus 4.7 with prompt caching
+        {mode === "free"
+          ? "Enter to generate · Natural-language brief · Claude Opus 4.7 + prompt caching"
+          : "Click submit to generate · Structured brief · Fields replace the free prompt"}
       </p>
     </motion.div>
   );

@@ -18,6 +18,7 @@ export function ImageRefNode({ id, data, selected }: NodeProps<CanvasNode>) {
       cacheHit={d.cacheHit}
       selected={selected}
       showInputHandle={false}
+      disabled={d.disabled}
     >
       {preview ? (
         <div className="overflow-hidden rounded-lg border border-white/5">

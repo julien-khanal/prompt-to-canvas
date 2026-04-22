@@ -18,6 +18,7 @@ export function OutputNode({ id, data, selected }: NodeProps<CanvasNode>) {
       selected={selected}
       showOutputHandle={false}
       width={320}
+      disabled={d.disabled}
       footer={
         hasAny ? (
           <button className="inline-flex items-center gap-1.5 text-[11px] text-[var(--color-text-dim)] hover:text-[var(--color-text)]">

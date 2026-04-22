@@ -75,20 +75,24 @@ async function executeOne(id: string, failed: Set<string>): Promise<ExecResult> 
 }
 
 function topoLayers(nodes: CanvasNode[], edges: CanvasEdge[]): string[][] {
+  const muted = collectMutedClosure(nodes, edges);
+  const liveNodes = nodes.filter((n) => !muted.has(n.id));
+  const liveEdges = edges.filter((e) => !muted.has(e.source) && !muted.has(e.target));
+
   const inDegree = new Map<string, number>();
   const outgoing = new Map<string, string[]>();
-  for (const n of nodes) {
+  for (const n of liveNodes) {
     inDegree.set(n.id, 0);
     outgoing.set(n.id, []);
   }
-  for (const e of edges) {
+  for (const e of liveEdges) {
     if (!inDegree.has(e.target) || !outgoing.has(e.source)) continue;
     inDegree.set(e.target, (inDegree.get(e.target) ?? 0) + 1);
     outgoing.get(e.source)!.push(e.target);
   }
 
   const layers: string[][] = [];
-  let current = nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0).map((n) => n.id);
+  let current = liveNodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0).map((n) => n.id);
   const visited = new Set<string>();
 
   while (current.length) {
@@ -105,8 +109,26 @@ function topoLayers(nodes: CanvasNode[], edges: CanvasEdge[]): string[][] {
     current = next;
   }
 
-  const missing = nodes.filter((n) => !visited.has(n.id)).map((n) => n.id);
+  const missing = liveNodes.filter((n) => !visited.has(n.id)).map((n) => n.id);
   if (missing.length) layers.push(missing);
 
   return layers;
+}
+
+function collectMutedClosure(nodes: CanvasNode[], edges: CanvasEdge[]): Set<string> {
+  const seedMuted = nodes.filter((n) => n.data.disabled === "mute").map((n) => n.id);
+  const muted = new Set<string>(seedMuted);
+  if (!seedMuted.length) return muted;
+
+  const queue = [...seedMuted];
+  while (queue.length) {
+    const id = queue.shift()!;
+    for (const e of edges) {
+      if (e.source !== id) continue;
+      if (muted.has(e.target)) continue;
+      muted.add(e.target);
+      queue.push(e.target);
+    }
+  }
+  return muted;
 }

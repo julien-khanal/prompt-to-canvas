@@ -12,6 +12,7 @@ import { PromptBox } from "@/components/prompt/PromptBox";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
 import { useUndoShortcut } from "@/lib/hooks/useUndoShortcut";
+import { useNodeShortcuts } from "@/lib/hooks/useNodeShortcuts";
 import { runWorkflow, abortWorkflowRun } from "@/lib/executor/runWorkflow";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ export function CanvasShell() {
   const [wizardOpen, setWizardOpen] = useState(false);
   useWorkflowPersistence();
   useUndoShortcut();
+  useNodeShortcuts();
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <Canvas />

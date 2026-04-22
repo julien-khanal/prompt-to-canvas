@@ -14,11 +14,14 @@ export type GeminiImageModel =
 export type AspectRatio = "1:1" | "16:9" | "9:16" | "4:3";
 export type ImageResolution = "1K" | "2K" | "4K";
 
+export type DisabledMode = "bypass" | "mute";
+
 export interface BaseNodeData extends Record<string, unknown> {
   label: string;
   status: NodeStatus;
   error?: string;
   cacheHit?: boolean;
+  disabled?: DisabledMode;
 }
 
 export interface PromptNodeData extends BaseNodeData {

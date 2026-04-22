@@ -30,6 +30,7 @@ export function ImageGenNode({ id, data, selected }: NodeProps<CanvasNode>) {
       width={312}
       runnable
       error={d.error}
+      disabled={d.disabled}
     >
       <NodeFieldRow label="Model">
         <NativeSelect

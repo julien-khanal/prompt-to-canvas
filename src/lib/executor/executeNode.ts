@@ -30,7 +30,15 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
   const node = store.nodes.find((n) => n.id === nodeId);
   if (!node) return { ok: false, error: "node not found" };
 
+  if (node.data.disabled === "mute") {
+    return { ok: false, error: "muted" };
+  }
+
   const inputs = gatherInputs(node, store.nodes, store.edges);
+
+  if (node.data.disabled === "bypass") {
+    return passThrough(node, inputs);
+  }
 
   switch (node.data.kind) {
     case "prompt": {
@@ -48,6 +56,36 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
       return { ok: true };
     case "output":
       return propagateToOutput(node.id, inputs);
+  }
+}
+
+async function passThrough(
+  node: CanvasNode,
+  inputs: GatheredInputs
+): Promise<ExecuteOutcome> {
+  const store = useCanvasStore.getState();
+  switch (node.data.kind) {
+    case "prompt": {
+      const text = inputs.text[0]?.text ?? "";
+      store.patchNodeData<PromptNodeData>(node.id, {
+        output: text,
+        status: "done",
+        cacheHit: true,
+      });
+      return { ok: true, cacheHit: true };
+    }
+    case "imageGen": {
+      const img = inputs.images[0];
+      store.patchNodeData<ImageGenNodeData>(node.id, {
+        outputImage: img,
+        status: "done",
+        cacheHit: true,
+      });
+      return { ok: true, cacheHit: true };
+    }
+    default:
+      store.setNodeStatus(node.id, "done");
+      return { ok: true };
   }
 }
 

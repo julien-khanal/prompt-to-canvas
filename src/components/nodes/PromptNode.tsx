@@ -26,6 +26,7 @@ export function PromptNode({ id, data, selected }: NodeProps<CanvasNode>) {
       selected={selected}
       runnable
       error={d.error}
+      disabled={d.disabled}
     >
       <NodeFieldRow label="Model">
         <NativeSelect

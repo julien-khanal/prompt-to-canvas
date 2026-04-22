@@ -4,7 +4,7 @@ import { Handle, Position } from "@xyflow/react";
 import { Loader2, Play, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import type { NodeStatus } from "@/lib/canvas/types";
+import type { DisabledMode, NodeStatus } from "@/lib/canvas/types";
 import { executeNode } from "@/lib/executor/executeNode";
 import { humanizeError } from "@/lib/errors/humanize";
 
@@ -23,6 +23,7 @@ interface BaseNodeProps {
   width?: number;
   runnable?: boolean;
   error?: string;
+  disabled?: DisabledMode;
 }
 
 const ACCENT_CLASS: Record<NonNullable<BaseNodeProps["accent"]>, string> = {
@@ -46,6 +47,7 @@ export function BaseNode({
   width = 288,
   runnable,
   error,
+  disabled,
 }: BaseNodeProps) {
   return (
     <motion.div
@@ -58,9 +60,12 @@ export function BaseNode({
         "shadow-[0_12px_40px_-18px_rgba(0,0,0,0.6)]",
         selected
           ? "ring-2 ring-[var(--color-g-blue)]/60 shadow-glow-blue"
-          : "ring-0"
+          : "ring-0",
+        disabled === "mute" && "opacity-40 grayscale",
+        disabled === "bypass" && "opacity-65"
       )}
     >
+      {disabled && <DisabledOverlay mode={disabled} />}
       <div className={cn("h-[3px] w-full", ACCENT_CLASS[accent])} aria-hidden />
 
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
@@ -120,6 +125,23 @@ export function BaseNode({
         />
       )}
     </motion.div>
+  );
+}
+
+function DisabledOverlay({ mode }: { mode: DisabledMode }) {
+  const stripeColor = mode === "mute" ? "rgba(234,67,53,0.18)" : "rgba(155,114,203,0.18)";
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 z-[1]"
+      style={{
+        backgroundImage: `repeating-linear-gradient(45deg, transparent 0 12px, ${stripeColor} 12px 24px)`,
+      }}
+    >
+      <div className="absolute right-2 top-2 z-[2] rounded-full bg-black/60 px-2 py-[2px] text-[9px] uppercase tracking-widest text-white">
+        {mode}
+      </div>
+    </div>
   );
 }
 

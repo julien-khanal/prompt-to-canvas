@@ -111,6 +111,20 @@ openssl rand -hex 32
 
 Image uploads from Cowork go via multipart so the binary never enters the LLM context. See `cowork-skill/README.md` for the full setup walk-through.
 
+## Export workflows as MCP tools (optional)
+
+Any workflow with `{{placeholder}}` parameters in its prompts can be exported as a Model Context Protocol tool — callable from Claude Desktop, Cursor, or any other MCP-aware client. The exported tool proxies back to your running canvas via the same Cowork bridge, so your perfected workflows become reusable functions for every AI agent on your machine.
+
+```text
+1. Add {{var}} placeholders to a prompt:
+   "Hero image for {{brand}} themed {{theme}}"
+2. Open Dashboard → hover the workflow → Plug icon → "Export as MCP tool"
+3. Download the generated .mjs script
+4. In its folder: npm i @modelcontextprotocol/sdk
+5. Paste the shown config block into ~/Library/Application Support/Claude/claude_desktop_config.json
+6. Restart Claude Desktop — your workflow now appears as a callable tool.
+```
+
 ## Deploy
 
 Vercel-ready. `pnpm build` produces a clean Next.js build; the three API routes run on Node runtime. Keys are never sent to or stored on your deployment — they live in the user's browser IndexedDB.

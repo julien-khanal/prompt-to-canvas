@@ -240,6 +240,47 @@ active per workflow.
 (case-insensitive). To pin always-on across workflows, also pass
 `alwaysOn: true`.
 
+## describe_workflow_inputs
+
+Lists all `{{name}}` placeholders found in a workflow's prompts.
+Useful before calling `run_workflow_with_inputs`.
+
+```json
+{
+  "type": "describe_workflow_inputs",
+  "payload": { "workflowId": "wf-..." }
+}
+```
+
+`workflowId` optional — if omitted, describes the currently open workflow.
+
+`result`: `{ workflowId, workflowName, parameters: [{name, description, appearsIn}], nodeCount }`.
+
+## run_workflow_with_inputs
+
+Runs a saved workflow as a parameterized function. Substitutes the
+provided values into `{{placeholder}}` slots, then runs the whole
+graph and returns the consolidated outputs. Use for repeated runs of
+the same workflow with different inputs (recommended over `generate`
++ `patch_node` chains).
+
+```json
+{
+  "type": "run_workflow_with_inputs",
+  "payload": {
+    "workflowId": "wf-abc",
+    "inputs": { "brand": "Telekom", "theme": "spring" }
+  }
+}
+```
+
+`result`: `{ workflowId, ok, failed, skipped, outputs: [{nodeId, label, text, images}] }`.
+
+This same command is what the auto-generated MCP servers call under
+the hood — if the user has exported a workflow as an MCP tool, you
+can either invoke that tool directly (preferred when available) or
+call this command yourself for the same effect.
+
 ## set_ref_image
 
 Wire an image into an existing imageRef node — typically after uploading a

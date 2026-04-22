@@ -15,6 +15,7 @@ import {
 } from "@/lib/db/workflows";
 import {
   createSkill,
+  deleteSkill,
   listSkills,
   updateSkill,
 } from "@/lib/db/skills";
@@ -64,6 +65,10 @@ export async function dispatchCommand(cmd: BridgeCommand): Promise<DispatchOutco
         return await onDescribeInputs(payload);
       case "run_workflow_with_inputs":
         return await onRunWithInputs(payload);
+      case "list_skills":
+        return await onListSkills();
+      case "delete_skill":
+        return await onDeleteSkill(payload);
       default:
         return { ok: false, error: `unknown command type: ${cmd.type}` };
     }
@@ -168,17 +173,67 @@ async function onCreateSkill(p: Record<string, unknown>): Promise<DispatchOutcom
   const active = p.active === true;
   if (!name || !body)
     return { ok: false, error: "name and body required" };
-  const sk = await createSkill({
-    name,
-    description,
-    body,
-    enabled: false,
-    alwaysOn: false,
-  });
-  if (active) {
-    useCanvasStore.getState().toggleSkillActive(sk.id);
+
+  const all = await listSkills();
+  const existing = all.find((s) => s.name.toLowerCase() === name.toLowerCase());
+  let id: string;
+  let updated = false;
+  if (existing) {
+    await updateSkill(existing.id, { description, body });
+    id = existing.id;
+    updated = true;
+  } else {
+    const sk = await createSkill({
+      name,
+      description,
+      body,
+      enabled: false,
+      alwaysOn: false,
+    });
+    id = sk.id;
   }
-  return { ok: true, result: { id: sk.id, active } };
+
+  if (active) {
+    const store = useCanvasStore.getState();
+    if (!store.activeSkillIds.includes(id)) {
+      store.toggleSkillActive(id);
+    }
+  }
+  return { ok: true, result: { id, active, updated } };
+}
+
+async function onListSkills(): Promise<DispatchOutcome> {
+  const all = await listSkills();
+  const store = useCanvasStore.getState();
+  return {
+    ok: true,
+    result: all.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      bytes: s.body.length,
+      alwaysOn: s.alwaysOn,
+      activeInCurrentWorkflow: store.activeSkillIds.includes(s.id) || s.alwaysOn,
+      updatedAt: s.updatedAt,
+    })),
+  };
+}
+
+async function onDeleteSkill(p: Record<string, unknown>): Promise<DispatchOutcome> {
+  const id = typeof p.id === "string" ? p.id : null;
+  const name = typeof p.name === "string" ? p.name : null;
+  if (!id && !name) return { ok: false, error: "id or name required" };
+  const all = await listSkills();
+  const target = id
+    ? all.find((s) => s.id === id)
+    : all.find((s) => s.name.toLowerCase() === name!.toLowerCase());
+  if (!target) return { ok: false, error: "skill not found" };
+  await deleteSkill(target.id);
+  const store = useCanvasStore.getState();
+  if (store.activeSkillIds.includes(target.id)) {
+    store.toggleSkillActive(target.id);
+  }
+  return { ok: true, result: { deleted: target.id, name: target.name } };
 }
 
 async function onToggleSkill(p: Record<string, unknown>): Promise<DispatchOutcome> {

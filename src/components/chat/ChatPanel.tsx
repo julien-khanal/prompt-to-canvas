@@ -9,6 +9,12 @@ import { buildSnapshot } from "@/lib/chat/snapshot";
 import { parseChatMessage, type Suggestion } from "@/lib/chat/parseSuggestions";
 import { validateApply } from "@/lib/chat/applyValidation";
 import { humanizeError } from "@/lib/errors/humanize";
+import {
+  duplicateWorkflow,
+  loadWorkflow,
+  setLastOpened,
+} from "@/lib/db/workflows";
+import { GitBranch } from "lucide-react";
 import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -238,23 +244,57 @@ function SuggestionCard({ s }: { s: Suggestion }) {
   const nodes = useCanvasStore((st) => st.nodes);
   const patch = useCanvasStore((st) => st.patchNodeData);
   const pushHistory = useCanvasStore((st) => st.pushHistory);
-  const [applied, setApplied] = useState(false);
+  const setWorkflow = useCanvasStore((st) => st.setWorkflow);
+  const currentWorkflowId = useCanvasStore((st) => st.workflowId);
+  const [applied, setApplied] = useState<"none" | "here" | "clone">("none");
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [forkBusy, setForkBusy] = useState(false);
 
   const node = nodes.find((n) => n.id === s.target);
   const exists = !!node;
 
-  const apply = () => {
-    if (!node) return;
+  const validate = () => {
+    if (!node) return null;
     const v = validateApply(node.data.kind, s.field, s.value);
     if (!v.ok) {
       setApplyError(v.error);
-      return;
+      return null;
     }
-    pushHistory(`Apply "${s.field}" via chat`);
-    patch(s.target, { [s.field]: v.value, cacheHit: false });
-    setApplied(true);
     setApplyError(null);
+    return v.value;
+  };
+
+  const apply = () => {
+    const value = validate();
+    if (value === null) return;
+    pushHistory(`Apply "${s.field}" via chat`);
+    patch(s.target, { [s.field]: value, cacheHit: false });
+    setApplied("here");
+  };
+
+  const applyToClone = async () => {
+    if (!currentWorkflowId) return;
+    const value = validate();
+    if (value === null) return;
+    setForkBusy(true);
+    try {
+      const newId = await duplicateWorkflow(currentWorkflowId);
+      if (!newId) {
+        setApplyError("Could not clone workflow.");
+        return;
+      }
+      const wf = await loadWorkflow(newId);
+      if (!wf) {
+        setApplyError("Cloned workflow could not be loaded.");
+        return;
+      }
+      await setLastOpened(newId);
+      setWorkflow(newId, wf.name, wf.nodes, wf.edges, wf.activeSkillIds);
+      patch(s.target, { [s.field]: value, cacheHit: false });
+      setApplied("clone");
+    } finally {
+      setForkBusy(false);
+    }
   };
 
   return (
@@ -266,20 +306,39 @@ function SuggestionCard({ s }: { s: Suggestion }) {
             {node?.data.label ?? s.target}
           </span>
         </div>
-        <button
-          onClick={apply}
-          disabled={!exists || applied}
-          className={cn(
-            "flex-none rounded-full px-2.5 py-[3px] text-[10.5px] font-medium transition-all",
-            applied
-              ? "bg-white/[0.06] text-[var(--color-text-faint)]"
-              : exists
-                ? "bg-gradient-primary text-white shadow-glow-blue hover:brightness-110"
-                : "bg-white/[0.04] text-[var(--color-text-faint)] line-through"
-          )}
-        >
-          {applied ? "Applied" : exists ? "Apply" : "Node missing"}
-        </button>
+        <div className="flex flex-none items-center gap-1">
+          <button
+            onClick={applyToClone}
+            disabled={!exists || applied !== "none" || forkBusy}
+            title="Clone the workflow first, then apply (keeps the current one untouched)"
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full border border-white/10 px-2 py-[3px] text-[10.5px] font-medium transition-all",
+              applied === "clone"
+                ? "bg-white/[0.06] text-[var(--color-text-faint)]"
+                : exists && !forkBusy
+                  ? "bg-white/[0.04] text-[var(--color-text-dim)] hover:bg-white/[0.08] hover:text-[var(--color-text)]"
+                  : "bg-white/[0.04] text-[var(--color-text-faint)] opacity-60"
+            )}
+          >
+            <GitBranch className="h-2.5 w-2.5" strokeWidth={2.4} />
+            {applied === "clone" ? "Cloned" : forkBusy ? "Forking…" : "Fork"}
+          </button>
+          <button
+            onClick={apply}
+            disabled={!exists || applied !== "none"}
+            title="Apply to the current workflow in place"
+            className={cn(
+              "rounded-full px-2.5 py-[3px] text-[10.5px] font-medium transition-all",
+              applied === "here"
+                ? "bg-white/[0.06] text-[var(--color-text-faint)]"
+                : exists
+                  ? "bg-gradient-primary text-white shadow-glow-blue hover:brightness-110"
+                  : "bg-white/[0.04] text-[var(--color-text-faint)] line-through"
+            )}
+          >
+            {applied === "here" ? "Applied" : exists ? "Apply" : "Node missing"}
+          </button>
+        </div>
       </div>
       <div className="whitespace-pre-wrap rounded-lg bg-black/30 p-2 font-mono text-[11px] leading-snug text-[var(--color-text)]">
         {s.value}

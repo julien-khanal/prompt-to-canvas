@@ -20,6 +20,15 @@ interface Msg {
 
 type ChatModel = "claude-sonnet-4-6" | "claude-opus-4-7";
 
+const MAX_TURNS = 16;
+
+function capHistory(msgs: Msg[]): Msg[] {
+  if (msgs.length <= MAX_TURNS) return msgs;
+  const drop = msgs.length - MAX_TURNS;
+  const evenDrop = drop + (drop % 2);
+  return msgs.slice(evenDrop);
+}
+
 export function ChatPanel() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [draft, setDraft] = useState("");
@@ -45,7 +54,7 @@ export function ChatPanel() {
       return;
     }
     const userMsg: Msg = { id: crypto.randomUUID(), role: "user", content: text };
-    const next = [...messages, userMsg];
+    const next = capHistory([...messages, userMsg]);
     setMessages(next);
     setDraft("");
     setLoading(true);
@@ -70,10 +79,12 @@ export function ChatPanel() {
         setMessages(next);
         return;
       }
-      setMessages([
-        ...next,
-        { id: crypto.randomUUID(), role: "assistant", content: json.text },
-      ]);
+      setMessages(
+        capHistory([
+          ...next,
+          { id: crypto.randomUUID(), role: "assistant", content: json.text },
+        ])
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "network error");
     } finally {

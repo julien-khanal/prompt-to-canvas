@@ -16,6 +16,15 @@ export interface ExecuteOutcome {
   cacheHit?: boolean;
 }
 
+function currentSignal(): AbortSignal | undefined {
+  return useCanvasStore.getState().runAbortController?.signal;
+}
+
+function isAbort(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  return err.name === "AbortError" || /aborted|abort/i.test(err.message);
+}
+
 export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
   const store = useCanvasStore.getState();
   const node = store.nodes.find((n) => n.id === nodeId);
@@ -146,6 +155,7 @@ async function runPrompt(
         inputs,
         apiKey,
       }),
+      signal: currentSignal(),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error ?? `http ${res.status}`);
@@ -157,6 +167,10 @@ async function runPrompt(
     });
     return { ok: true };
   } catch (err) {
+    if (isAbort(err)) {
+      store.setNodeStatus(node.id, "idle", undefined);
+      return { ok: false, error: "aborted" };
+    }
     const msg = err instanceof Error ? err.message : "unknown error";
     store.setNodeStatus(node.id, "error", msg);
     return { ok: false, error: msg };
@@ -237,6 +251,7 @@ async function runImageGen(
         refImages,
         apiKey,
       }),
+      signal: currentSignal(),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error ?? `http ${res.status}`);
@@ -248,6 +263,10 @@ async function runImageGen(
     });
     return { ok: true };
   } catch (err) {
+    if (isAbort(err)) {
+      store.setNodeStatus(node.id, "idle", undefined);
+      return { ok: false, error: "aborted" };
+    }
     const msg = err instanceof Error ? err.message : "unknown error";
     store.setNodeStatus(node.id, "error", msg);
     return { ok: false, error: msg };

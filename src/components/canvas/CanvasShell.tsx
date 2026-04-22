@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookMarked, FolderOpen, Loader2, MessageSquare, Play, Settings, Undo2 } from "lucide-react";
+import { BookMarked, FolderOpen, Loader2, MessageSquare, Play, Settings, Square, Undo2 } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { RightPanel } from "@/components/inspector/RightPanel";
@@ -12,7 +12,7 @@ import { PromptBox } from "@/components/prompt/PromptBox";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
 import { useUndoShortcut } from "@/lib/hooks/useUndoShortcut";
-import { runWorkflow } from "@/lib/executor/runWorkflow";
+import { runWorkflow, abortWorkflowRun } from "@/lib/executor/runWorkflow";
 import { cn } from "@/lib/utils";
 
 export function CanvasShell() {
@@ -128,26 +128,27 @@ function TopBar({
         >
           <MessageSquare className="h-4 w-4" strokeWidth={1.7} />
         </button>
-        <button
-          onClick={() => runWorkflow()}
-          disabled={isRunning || !hasNodes}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50",
-            "bg-gradient-success shadow-glow-blue hover:brightness-110 active:brightness-95"
-          )}
-        >
-          {isRunning ? (
-            <>
-              <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.4} />
-              Running
-            </>
-          ) : (
-            <>
-              <Play className="h-3 w-3 fill-current" strokeWidth={0} />
-              Run
-            </>
-          )}
-        </button>
+        {isRunning ? (
+          <button
+            onClick={() => abortWorkflowRun()}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--color-g-red)]/90 px-4 py-1.5 text-xs font-medium text-white shadow-[0_0_24px_-6px_rgba(234,67,53,0.5)] transition-all hover:bg-[var(--color-g-red)]"
+          >
+            <Square className="h-3 w-3 fill-current" strokeWidth={0} />
+            Stop
+          </button>
+        ) : (
+          <button
+            onClick={() => runWorkflow()}
+            disabled={!hasNodes}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium text-white transition-all disabled:cursor-not-allowed disabled:opacity-50",
+              "bg-gradient-success shadow-glow-blue hover:brightness-110 active:brightness-95"
+            )}
+          >
+            <Play className="h-3 w-3 fill-current" strokeWidth={0} />
+            Run
+          </button>
+        )}
         <button
           onClick={onOpenSettings}
           aria-label="Settings"

@@ -35,6 +35,7 @@ interface CanvasState {
   nodes: CanvasNode[];
   edges: CanvasEdge[];
   isRunning: boolean;
+  runAbortController: AbortController | null;
   graphVersion: number;
   workflowId: string | null;
   workflowName: string;
@@ -53,6 +54,7 @@ interface CanvasState {
   setEdgesAnimated: (edgeIds: string[], animated: boolean) => void;
   resetRunStatuses: () => void;
   setRunning: (v: boolean) => void;
+  setRunAbortController: (c: AbortController | null) => void;
   removeNode: (id: string) => void;
   addNode: (node: CanvasNode) => void;
   removeOrphanEdgesFor: (nodeIds: string[]) => void;
@@ -71,6 +73,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   nodes: [],
   edges: [],
   isRunning: false,
+  runAbortController: null,
   graphVersion: 0,
   workflowId: null,
   workflowName: "Untitled",
@@ -139,6 +142,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: s.edges.map((e) => ({ ...e, animated: false })),
     })),
   setRunning: (v) => set({ isRunning: v }),
+  setRunAbortController: (c) => set({ runAbortController: c }),
   removeNode: (id) =>
     set((s) => ({
       nodes: s.nodes.filter((n) => n.id !== id),

@@ -15,6 +15,8 @@ export async function runWorkflow(): Promise<RunOutcome> {
   if (store.isRunning) return { ok: false, skipped: [], failed: [] };
   if (!store.nodes.length) return { ok: true, skipped: [], failed: [] };
 
+  const controller = new AbortController();
+  store.setRunAbortController(controller);
   store.setRunning(true);
   store.resetRunStatuses();
 
@@ -27,6 +29,7 @@ export async function runWorkflow(): Promise<RunOutcome> {
       useCanvasStore.getState().edges
     );
     for (const layer of layers) {
+      if (controller.signal.aborted) break;
       await Promise.all(
         layer.map((id) =>
           executeOne(id, failed).then((result) => {
@@ -36,10 +39,16 @@ export async function runWorkflow(): Promise<RunOutcome> {
         )
       );
     }
-    return { ok: failed.size === 0, skipped, failed: [...failed] };
+    return { ok: failed.size === 0 && !controller.signal.aborted, skipped, failed: [...failed] };
   } finally {
     useCanvasStore.getState().setRunning(false);
+    useCanvasStore.getState().setRunAbortController(null);
   }
+}
+
+export function abortWorkflowRun(): void {
+  const c = useCanvasStore.getState().runAbortController;
+  c?.abort();
 }
 
 type ExecResult = "done" | "failed" | "skipped";

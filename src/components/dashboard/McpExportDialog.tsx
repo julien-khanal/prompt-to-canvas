@@ -10,29 +10,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/field";
-import { getCoworkSecret } from "@/lib/cowork/clientApi";
+import { loadWorkflow } from "@/lib/db/workflows";
+import { buildManifest, type McpManifest } from "@/lib/mcp/manifest";
+import { generateMcpScript } from "@/lib/mcp/generateScript";
 import { humanizeError } from "@/lib/errors/humanize";
 import { cn } from "@/lib/utils";
 
-interface ManifestParam {
-  type: "string";
-  description: string;
-}
-
-interface Manifest {
-  workflowId: string;
-  workflowName: string;
-  toolName: string;
-  description: string;
-  inputSchema: {
-    type: "object";
-    properties: Record<string, ManifestParam>;
-    required: string[];
-  };
-}
-
 interface ScriptResponse {
-  manifest: Manifest;
+  manifest: McpManifest;
   filename: string;
   contents: string;
   configSnippet: string;
@@ -58,25 +43,27 @@ export function McpExportDialog({
       setError(null);
       return;
     }
-    const secret = getCoworkSecret();
-    if (!secret) {
-      setError("Set the Cowork bridge secret in Settings first — MCP export uses the same auth.");
-      return;
-    }
     setLoading(true);
-    fetch(`/api/mcp/script/${workflowId}`, {
-      headers: { "X-Canvas-Secret": secret },
-    })
-      .then(async (res) => {
-        const json = await res.json();
-        if (!res.ok) {
-          setError(json.error ?? `http ${res.status}`);
+    (async () => {
+      try {
+        const wf = await loadWorkflow(workflowId);
+        if (!wf) {
+          setError("workflow not found");
           return;
         }
-        setData(json as ScriptResponse);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "fetch failed"))
-      .finally(() => setLoading(false));
+        const manifest = buildManifest(workflowId, wf.name, wf.nodes);
+        const baseUrl =
+          typeof window !== "undefined"
+            ? `${window.location.protocol}//${window.location.host}`
+            : "http://localhost:3000";
+        const script = generateMcpScript(manifest, baseUrl);
+        setData({ manifest, ...script });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "build failed");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [open, workflowId]);
 
   const copy = async (key: string, text: string) => {
@@ -181,7 +168,8 @@ export function McpExportDialog({
               />
               <Hint>
                 Replace <code className="font-mono">/absolute/path/to/{data.filename}</code> with where you saved it.
-                Replace <code className="font-mono">{"<same-as-COWORK_API_SECRET>"}</code> with the actual secret value.
+                Replace <code className="font-mono">{"<same-as-COWORK_API_SECRET>"}</code> with the actual secret value
+                and use your cloudflared tunnel URL (not localhost) so Claude Desktop can reach the canvas.
               </Hint>
             </div>
 

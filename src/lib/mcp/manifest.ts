@@ -1,4 +1,3 @@
-import "server-only";
 import type { CanvasNode } from "@/lib/canvas/types";
 import { detectParameters } from "@/lib/workflow/parameters";
 

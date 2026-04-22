@@ -1,59 +1,42 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 11 (Safety & Robustness)
+Phase: 12 (Power-User Controls)
 Status: done
-Letzter Commit: 11.8 + 11.9
+Letzter Commit: 12.4 Array + Variant fan-out
 
-## Shipped in 11
-- **11.1** Generate-Confirm-Dialog — bei Submit auf vollem Workflow: 3-Wege-Dialog (Open in new workflow / Replace / Cancel). "Open in new" auto-named aus Prompt. Fixt den ursprünglichen Datenverlust-Bug.
-- **11.2** Undo-Stack — letzte 12 Snapshots, Cmd+Z global (außer in Inputs), TopBar-Undo-Button. `replaceGraph` und `removeNode` pushen automatisch eine History.
-- **11.3** Orphan-Edge-Cleanup — `onNodesDelete` von React Flow ruft `removeOrphanEdgesFor`, Backspace + Delete beide aktiv, History wird gepusht.
-- **11.4** Chat-Apply-Validation — `validateApply()` whitelistet patchbare Felder pro Node-Kind, prüft Enums (model/aspect/resolution/role) und Range (temperature 0–1). Bad Apply zeigt per-card-Error, kein silent corruption.
-- **11.5** ImageGen-Output-Override-Flag — `outputOverride: boolean`. Executor short-circuit'tet wenn Flag gesetzt, kein API-Call. "Reset cache" und Clear-X unsetzen den Flag.
-- **11.6** Output-Auto-Refresh — nach jedem erfolgreichen Prompt/ImageGen/ImageRef-Pass `refreshDownstreamOutputs()` walked downstream, ruft `propagateToOutput` für jeden erreichbaren Output-Node. Per-Node-Run aktualisiert Final automatisch.
-- **11.7** Skills pro Workflow — `WorkflowRecord.activeSkillIds` persistiert. Switch zu anderem Workflow → Skills-Auswahl wechselt. Pinned/alwaysOn bleibt global.
-- **11.8** Chat-History-Cap (16 Messages) — älteste Pair (User+Assistant) wird gedroppt sobald Limit überschritten. Token-Cost bleibt bounded.
-- **11.9** Run-Abort — AbortController in `runWorkflow`, Signal an alle fetches in `executeNode`. Stop-Button (rot) ersetzt Run während `isRunning`. AbortError → Status zurück auf idle, kein "error" markiert.
+## Shipped in 12
+- **12.1** Bypass / Mute pro Node — `disabled?: "bypass" | "mute"`. Bypass = Node skipped, Upstream wird durchgereicht. Mute = Node + downstream Branch tot. Toposort kennt Mute-Closure. Inspector-Toolbar (Bypass/Mute/Delete) + Keyboard-Shortcuts ⌘B / ⌘M (auch für Multi-Select). Visuelles Stripe-Pattern + Badge.
+- **12.2** Compare-Node — neuer 5. Node-Typ `compare`. Zwei Image-Input-Handles (left/right). 16:10 Slider-Viewer, drag/click setzt Split-Position. Touch + Mouse. Auto-Sync von Upstream-Bildern via useEffect. Pure UI, keine Execution.
+- **12.4** Array-Node + Variant-Fan-Out — neuer 6. Node-Typ `array`. Editierbare Item-Liste. Wenn an ImageGen verdrahtet, läuft ImageGen einmal pro Item ("Variant focus: ..."), Live-Progress-Anzeige, Cache pro Variant, Grid-Display in Output. Downstream-Konsumenten (Compare, Output) sehen alle Variants. Abort wird respektiert.
 
 ## Selbst-getestet
-- `pnpm build` grün nach jedem Sub-Step (alle 8 Commits)
-- API-Error-Paths via `curl`:
-  - `POST /api/chat` ohne Key → `{"error":"Anthropic key missing"}` ✅
-  - `POST /api/generate-workflow` ohne Key → korrekter 400-Error ✅
-  - `POST /api/chat` mit leerer messages → `{"error":"no messages"}` ✅
-- HMR auf laufendem Dev-Server picked up alle Änderungen, mehrfach `GET / 200` bestätigt
+- `pnpm build` grün nach jedem Sub-Step (3 Commits)
+- Dev-Server :3000 health: `GET / -> 200 (275 ms)`
+- API-Error-Pfade unverändert: `/api/chat` ohne Key → `Anthropic key missing`
+- Build erkennt alle 6 Node-Typen, neue Ressourcen (compare, array) korrekt im Bundle
 
-## User-side Test-Plan (was ich nicht von Server-Seite verifizieren kann)
-1. **Bug fix**: Workflow generieren, Settings öffnen, Bilder hochladen → erneut Prompt absetzen → Dialog "Open in new" wählen → originaler Workflow muss intakt bleiben (Dashboard öffnen → beide sichtbar)
-2. **Undo**: Node löschen → ⌘Z → Node + Edges zurück
-3. **Keyboard delete**: Node selektieren, Backspace → Edges verschwinden auch
-4. **Chat-Apply**: Chat fragen "Welcher Model wäre besser für Variation A?" → Suggestion-Card mit Apply-Button → Klick → Modell ändert sich am Node
-5. **Chat-Apply-Block**: Chat manuell "fake" suggestion mit field="kind" senden lassen → Error "cannot be applied"
-6. **Output-Override**: ImageGen-Node Inspector → eigenes Bild hochladen → Run klicken → Cache-Chip erscheint, Gemini wird NICHT angerufen
-7. **Output-Auto-Refresh**: Workflow mit Concept→ImageGen→Output, Run, dann Concept-Prompt ändern, Run am Concept allein → Output sollte den neuen Concept-Text consolidaten
-8. **Skills pro Workflow**: 2 Workflows. In A skill X aktivieren, auf B switchen → X aus, Y aktivieren, zurück auf A → X wieder an
-9. **Chat-Cap**: 20+ Chat-Turns → älteste verschwinden, kein Crash
-10. **Run-Abort**: Workflow mit 3+ ImageGens starten, sofort Stop klicken → Run bricht sauber ab, Nodes status idle
+## User-side Test-Plan
+1. **Bypass:** Ein Node selektieren → ⌘B → Stripe-Overlay erscheint. Run → Node wird übersprungen, Upstream-Output wird als sein Output durchgereicht. ⌘B nochmal → zurück.
+2. **Mute:** Ein Node selektieren → ⌘M → roter Stripe. Run → Node + downstream skipped. ⌘M nochmal → zurück.
+3. **Compare-Node:** Toolbox → Compare A/B aufs Canvas droppen. Zwei ImageGen-Outputs auf die zwei left-Handles wiren. Slider draggen → Bilder werden überlagert.
+4. **Array + Variants:** Toolbox → Variants array droppen. Items editieren ("cinematic", "studio", "flat-lay"). Auf ImageGen-Input wiren. ImageGen Run → 3 Bilder als Grid generiert. Output-Node zeigt alle 3.
+5. **Cache pro Variant:** Variants-Run nochmal → CACHE-Chip erscheint, kein Gemini-Call.
 
-## Offen (Tier 3, Post-MVP)
-- IndexedDB-Quota-Eviction für Result-Cache
-- Multi-Tab-Race-Conditions
-- Chat-Compaction via Sonnet (statt Drop) bei sehr langen Sessions
-- Edge-Selection / Edge-Inspector
-- Generator-Timeout (kein Hänger bei langsamer API)
-- Toolbox auf Touch-Devices (HTML5-Drag schwach)
-- Result-Cache-Eviction-Policy (LRU + Bytes-Cap)
+## Offen (Tier 3, nicht blockend)
+- "Modify existing workflow" Generator-Modus (12.3 vom User skipped, Phase 12.5 später möglich)
+- Subgraph (collapse-to-node) wie ComfyUI Aug-2025
+- App Mode (Workflow als shareable Form)
+- Real-time canvas (Krea-Style)
+- Region-Prompts mit Maske
+- IndexedDB-Eviction-Policy
 
-## Commits Phase 11
+## Commits Phase 12
 ```
-7998cdb 11.8 + 11.9 Chat history cap + Run abort
-298938d 11.7 Skills active per workflow (not globally)
-5e10ca1 11.5 + 11.6 ImageGen output override flag + downstream auto-refresh
-99ad981 11.3 + 11.4 Orphan-edge cleanup + Chat-Apply validation
-265cd8e 11.1 Generate-confirm dialog: stop silent workflow destruction
-28adf8c 11.2 Undo stack + Cmd+Z + TopBar undo button
+0d0f4c0 12.4 Array node + ImageGen variant fan-out
+9311f8e 12.2 Compare node: drag-slider A/B viewer
+ca1d629 12.1 Bypass / Mute on every node
 ```
 
 ## Resume
-`claude` → `/model sonnet` → `PROGRESS.md` → falls Tier-3-Robustness gewünscht.
+`claude` → `/model sonnet` → `PROGRESS.md` → falls Tier-3 oder "Modify-Generator" gewünscht.

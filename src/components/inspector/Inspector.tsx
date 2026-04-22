@@ -94,6 +94,7 @@ function Header({
     imageRef: "Reference image",
     output: "Consolidated result",
     compare: "Slider compare",
+    array: "Variants array",
   };
   const patch = useCanvasStore((s) => s.patchNodeData);
   const pushHistory = useCanvasStore((s) => s.pushHistory);
@@ -189,7 +190,34 @@ function Body({
       return <OutputBody data={node.data} />;
     case "compare":
       return <CompareBody data={node.data} onPatch={onPatch} />;
+    case "array":
+      return <ArrayBody data={node.data} onPatch={onPatch} />;
   }
+}
+
+function ArrayBody({
+  data,
+  onPatch,
+}: {
+  data: import("@/lib/canvas/types").ArrayNodeData;
+  onPatch: (patch: Partial<import("@/lib/canvas/types").ArrayNodeData>) => void;
+}) {
+  return (
+    <div className="space-y-4 pt-4">
+      <LabeledField label="Label">
+        <TextInput value={data.label} onChange={(label) => onPatch({ label })} />
+      </LabeledField>
+      <p className="text-[11.5px] leading-relaxed text-[var(--color-text-faint)]">
+        Edit items inline on the node. When this Array is connected to an
+        Image node&apos;s input, the Image node runs once per non-empty item
+        — each item is appended as &quot;Variant focus&quot; to its base prompt.
+        Cache works per-variant so reruns are cheap.
+      </p>
+      <p className="text-[11.5px] leading-relaxed text-[var(--color-text-faint)]">
+        Currently {data.items.filter((s) => s.trim()).length} non-empty item{data.items.filter((s) => s.trim()).length === 1 ? "" : "s"}.
+      </p>
+    </div>
+  );
 }
 
 function CompareBody({

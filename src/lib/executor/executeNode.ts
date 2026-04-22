@@ -47,10 +47,16 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
       return outcome;
     }
     case "imageGen": {
-      const outcome = await runImageGen(node, node.data, inputs.text, inputs.images, inputs.refs);
+      const outcome = inputs.variantItems.length
+        ? await runImageGenVariants(node, node.data, inputs)
+        : await runImageGen(node, node.data, inputs.text, inputs.images, inputs.refs);
       if (outcome.ok) refreshDownstreamOutputs(node.id);
       return outcome;
     }
+    case "array":
+      useCanvasStore.getState().setNodeStatus(node.id, "done");
+      refreshDownstreamOutputs(node.id);
+      return { ok: true };
     case "imageRef":
       refreshDownstreamOutputs(node.id);
       return { ok: true };
@@ -118,6 +124,7 @@ interface GatheredInputs {
   text: Array<{ label: string; text: string }>;
   images: string[];
   refs: Array<{ url: string; role?: string; label: string }>;
+  variantItems: string[];
 }
 
 function gatherInputs(
@@ -129,22 +136,32 @@ function gatherInputs(
   const text: GatheredInputs["text"] = [];
   const images: string[] = [];
   const refs: GatheredInputs["refs"] = [];
+  const variantItems: string[] = [];
   for (const srcId of sources) {
     const src = nodes.find((n) => n.id === srcId);
     if (!src) continue;
     if (src.data.kind === "prompt" && src.data.output) {
       text.push({ label: src.data.label, text: src.data.output });
-    } else if (src.data.kind === "imageGen" && src.data.outputImage) {
-      images.push(src.data.outputImage);
+    } else if (src.data.kind === "imageGen") {
+      if (src.data.outputImages && src.data.outputImages.length > 0) {
+        for (const u of src.data.outputImages) images.push(u);
+      } else if (src.data.outputImage) {
+        images.push(src.data.outputImage);
+      }
     } else if (src.data.kind === "imageRef") {
       const ref = src.data as ImageRefNodeData;
       const url = ref.dataUrl ?? ref.url;
       if (!url) continue;
       images.push(url);
       refs.push({ url, role: ref.role, label: ref.label });
+    } else if (src.data.kind === "array") {
+      for (const it of src.data.items) {
+        const trimmed = it.trim();
+        if (trimmed) variantItems.push(trimmed);
+      }
     }
   }
-  return { text, images, refs };
+  return { text, images, refs, variantItems };
 }
 
 async function runPrompt(
@@ -216,6 +233,104 @@ async function runPrompt(
     store.setNodeStatus(node.id, "error", msg);
     return { ok: false, error: msg };
   }
+}
+
+async function runImageGenVariants(
+  node: CanvasNode,
+  data: ImageGenNodeData,
+  inputs: GatheredInputs
+): Promise<ExecuteOutcome> {
+  const store = useCanvasStore.getState();
+  const apiKey = await getKey("gemini");
+  if (!apiKey) {
+    store.setNodeStatus(node.id, "error", "Gemini key missing");
+    return { ok: false, error: "Gemini key missing" };
+  }
+
+  const items = inputs.variantItems;
+  store.patchNodeData<ImageGenNodeData>(node.id, {
+    status: "running",
+    error: undefined,
+    outputImages: undefined,
+    outputImage: undefined,
+    cacheHit: false,
+    variantProgress: { done: 0, total: items.length },
+  });
+
+  const collected: string[] = [];
+  let cacheHits = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const variantPrompt = `${data.prompt}\n\nVariant focus: ${item}`;
+    const params = {
+      kind: "gemini",
+      model: data.model,
+      prompt: variantPrompt,
+      aspectRatio: data.aspectRatio,
+      resolution: data.resolution,
+      refImageHashes: inputs.images.slice().sort(),
+      refRoles: inputs.refs.map((r) => r.role ?? "").sort(),
+      variantIndex: i,
+      variantTotal: items.length,
+    };
+    const hash = await hashFor(params);
+    const cached = await getCached(hash);
+    if (cached && cached.kind === "image") {
+      collected.push(cached.dataUrl);
+      cacheHits += 1;
+      store.patchNodeData<ImageGenNodeData>(node.id, {
+        outputImages: [...collected],
+        variantProgress: { done: collected.length, total: items.length },
+      });
+      continue;
+    }
+    try {
+      const res = await fetch("/api/gemini/execute", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: data.model,
+          prompt: variantPrompt,
+          aspectRatio: data.aspectRatio,
+          resolution: data.resolution,
+          refImages: inputs.images,
+          apiKey,
+        }),
+        signal: currentSignal(),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `http ${res.status}`);
+      const result: NodeResult = { kind: "image", dataUrl: json.dataUrl, mime: json.mime };
+      await putCached(hash, result);
+      collected.push(result.dataUrl);
+      store.patchNodeData<ImageGenNodeData>(node.id, {
+        outputImages: [...collected],
+        variantProgress: { done: collected.length, total: items.length },
+      });
+    } catch (err) {
+      if (isAbort(err)) {
+        store.patchNodeData<ImageGenNodeData>(node.id, {
+          status: "idle",
+          variantProgress: undefined,
+        });
+        return { ok: false, error: "aborted" };
+      }
+      const msg = err instanceof Error ? err.message : "unknown error";
+      store.setNodeStatus(node.id, "error", msg);
+      store.patchNodeData<ImageGenNodeData>(node.id, { variantProgress: undefined });
+      return { ok: false, error: msg };
+    }
+  }
+
+  store.patchNodeData<ImageGenNodeData>(node.id, {
+    status: "done",
+    outputImage: collected[0],
+    outputImages: collected,
+    cacheHit: cacheHits === items.length && items.length > 0,
+    variantProgress: undefined,
+  });
+  return { ok: true, cacheHit: cacheHits === items.length && items.length > 0 };
 }
 
 async function runImageGen(

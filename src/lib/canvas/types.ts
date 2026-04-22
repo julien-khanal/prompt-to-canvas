@@ -40,7 +40,9 @@ export interface ImageGenNodeData extends BaseNodeData {
   aspectRatio: AspectRatio;
   resolution: ImageResolution;
   outputImage?: string;
+  outputImages?: string[];
   outputOverride?: boolean;
+  variantProgress?: { done: number; total: number };
 }
 
 export type RefRole =
@@ -74,12 +76,18 @@ export interface CompareNodeData extends BaseNodeData {
   splitPercent?: number;
 }
 
+export interface ArrayNodeData extends BaseNodeData {
+  kind: "array";
+  items: string[];
+}
+
 export type CanvasNodeData =
   | PromptNodeData
   | ImageGenNodeData
   | ImageRefNodeData
   | OutputNodeData
-  | CompareNodeData;
+  | CompareNodeData
+  | ArrayNodeData;
 
 export type CanvasNode = Node<CanvasNodeData>;
 export type CanvasEdge = Edge;

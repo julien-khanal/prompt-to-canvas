@@ -48,7 +48,21 @@ export function ImageGenNode({ id, data, selected }: NodeProps<CanvasNode>) {
       <div className="rounded-lg bg-white/[0.03] p-2.5 text-[12px] leading-snug text-[var(--color-text-dim)] line-clamp-3">
         {d.prompt || "—"}
       </div>
-      {d.outputImage ? (
+      {d.variantProgress && (
+        <div className="rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-1.5 text-[11px] text-[var(--color-text-dim)]">
+          Variants: {d.variantProgress.done} / {d.variantProgress.total}
+        </div>
+      )}
+      {d.outputImages && d.outputImages.length > 1 ? (
+        <div className="grid grid-cols-2 gap-1.5">
+          {d.outputImages.map((src, i) => (
+            <div key={i} className="overflow-hidden rounded-lg border border-white/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`variant-${i + 1}`} className="h-auto w-full" />
+            </div>
+          ))}
+        </div>
+      ) : d.outputImage ? (
         <div className="overflow-hidden rounded-lg border border-white/5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={d.outputImage} alt={d.label} className="h-auto w-full" />

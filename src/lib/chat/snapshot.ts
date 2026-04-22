@@ -46,7 +46,8 @@ function nodeSummary(n: CanvasNode): Record<string, unknown> {
         aspectRatio: n.data.aspectRatio,
         resolution: n.data.resolution,
         prompt: truncate(n.data.prompt, 600),
-        hasOutput: !!n.data.outputImage,
+        hasOutput: !!(n.data.outputImage || n.data.outputImages?.length),
+        variantCount: n.data.outputImages?.length ?? (n.data.outputImage ? 1 : 0),
       };
     case "imageRef":
       return {
@@ -64,6 +65,11 @@ function nodeSummary(n: CanvasNode): Record<string, unknown> {
         splitPercent: n.data.splitPercent ?? 50,
         hasLeft: !!n.data.leftImage,
         hasRight: !!n.data.rightImage,
+      };
+    case "array":
+      return {
+        items: n.data.items,
+        itemCount: n.data.items.length,
       };
   }
 }

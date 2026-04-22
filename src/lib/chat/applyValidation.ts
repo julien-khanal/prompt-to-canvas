@@ -28,6 +28,7 @@ const APPLYABLE_FIELDS: Record<Kind, Set<string>> = {
   imageRef: new Set(["label", "role", "url"]),
   output: new Set(["label"]),
   compare: new Set(["label"]),
+  array: new Set(["label"]),
 };
 
 export interface ApplyValidationOk {

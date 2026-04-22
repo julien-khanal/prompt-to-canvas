@@ -75,5 +75,17 @@ export function createNode(kind: Kind, position: { x: number; y: number }): Canv
           splitPercent: 50,
         },
       };
+    case "array":
+      return {
+        id: newId("a"),
+        type: "array",
+        position,
+        data: {
+          kind: "array",
+          label: "Variants",
+          status: "idle",
+          items: ["cinematic, golden hour", "studio, neutral background", "overhead flat-lay"],
+        },
+      };
   }
 }

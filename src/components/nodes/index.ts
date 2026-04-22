@@ -3,6 +3,7 @@ import { ImageGenNode } from "./ImageGenNode";
 import { ImageRefNode } from "./ImageRefNode";
 import { OutputNode } from "./OutputNode";
 import { CompareNode } from "./CompareNode";
+import { ArrayNode } from "./ArrayNode";
 
 export const nodeTypes = {
   prompt: PromptNode,
@@ -10,4 +11,5 @@ export const nodeTypes = {
   imageRef: ImageRefNode,
   output: OutputNode,
   compare: CompareNode,
+  array: ArrayNode,
 };

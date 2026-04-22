@@ -16,6 +16,8 @@ const KNOWN_TYPES = new Set([
   "create_skill",
   "toggle_skill",
   "set_ref_image",
+  "run_workflow_with_inputs",
+  "describe_workflow_inputs",
 ]);
 
 export async function POST(req: NextRequest) {

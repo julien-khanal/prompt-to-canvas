@@ -20,6 +20,8 @@ import {
 } from "@/lib/db/skills";
 import { fetchRefAsDataUrl, type BridgeCommand } from "./clientApi";
 import { validateApply } from "@/lib/chat/applyValidation";
+import { applyParameters, detectParameters } from "@/lib/workflow/parameters";
+import { runWorkflowOnGraph } from "@/lib/executor/runWorkflow";
 import type {
   CanvasEdge,
   CanvasNode,
@@ -59,6 +61,10 @@ export async function dispatchCommand(cmd: BridgeCommand): Promise<DispatchOutco
         return await onToggleSkill(payload);
       case "set_ref_image":
         return await onSetRefImage(payload);
+      case "describe_workflow_inputs":
+        return await onDescribeInputs(payload);
+      case "run_workflow_with_inputs":
+        return await onRunWithInputs(payload);
       default:
         return { ok: false, error: `unknown command type: ${cmd.type}` };
     }
@@ -209,6 +215,66 @@ async function onToggleSkill(p: Record<string, unknown>): Promise<DispatchOutcom
     store.toggleSkillActive(target.id);
 
   return { ok: true, result: { id: target.id, name: target.name, active: wantActive } };
+}
+
+async function onDescribeInputs(p: Record<string, unknown>): Promise<DispatchOutcome> {
+  const id = typeof p.workflowId === "string" ? p.workflowId : null;
+  let nodes: CanvasNode[];
+  let name: string;
+  if (id) {
+    const wf = await loadWorkflow(id);
+    if (!wf) return { ok: false, error: "workflow not found" };
+    nodes = wf.nodes;
+    name = wf.name;
+  } else {
+    const s = useCanvasStore.getState();
+    nodes = s.nodes;
+    name = s.workflowName;
+  }
+  const params = detectParameters(nodes);
+  return {
+    ok: true,
+    result: {
+      workflowId: id ?? useCanvasStore.getState().workflowId,
+      workflowName: name,
+      parameters: params,
+      nodeCount: nodes.length,
+    },
+  };
+}
+
+async function onRunWithInputs(p: Record<string, unknown>): Promise<DispatchOutcome> {
+  const id = String(p.workflowId ?? "").trim();
+  const inputs = (p.inputs ?? {}) as Record<string, string>;
+  if (!id) return { ok: false, error: "workflowId required" };
+
+  const wf = await loadWorkflow(id);
+  if (!wf) return { ok: false, error: "workflow not found" };
+
+  const substituted = applyParameters(wf.nodes, inputs);
+  const out = await runWorkflowOnGraph(substituted, wf.edges);
+
+  const outputNodes = out.finalNodes.filter((n) => n.data.kind === "output");
+  const summary = outputNodes.map((n) => {
+    if (n.data.kind !== "output") return null;
+    return {
+      nodeId: n.id,
+      label: n.data.label,
+      text: n.data.text,
+      images: n.data.images,
+    };
+  });
+
+  return {
+    ok: out.ok,
+    result: {
+      workflowId: id,
+      ok: out.ok,
+      failed: out.failed,
+      skipped: out.skipped,
+      outputs: summary.filter(Boolean),
+    },
+  };
 }
 
 async function onSetRefImage(p: Record<string, unknown>): Promise<DispatchOutcome> {

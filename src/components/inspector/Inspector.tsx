@@ -208,6 +208,16 @@ function ImageGenBody({
   data: ImageGenNodeData;
   onPatch: (patch: Partial<ImageGenNodeData>) => void;
 }) {
+  const onOverrideFile = async (file: File) => {
+    const url = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(file);
+    });
+    onPatch({ outputImage: url, status: "done", cacheHit: false });
+  };
+
   return (
     <div className="space-y-4 pt-4">
       <LabeledField label="Label">
@@ -241,6 +251,53 @@ function ImageGenBody({
           value={data.resolution}
           onChange={(resolution) => onPatch({ resolution, cacheHit: false })}
         />
+      </LabeledField>
+      <LabeledField
+        label="Output image"
+        hint={data.outputImage ? "override the generated result" : "empty — run or override"}
+      >
+        {data.outputImage ? (
+          <div className="space-y-2">
+            <div className="relative overflow-hidden rounded-xl border border-white/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={data.outputImage} alt="output" className="h-auto w-full" />
+              <button
+                onClick={() => onPatch({ outputImage: undefined, status: "idle" })}
+                className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-[var(--color-g-red)]"
+                aria-label="Clear output"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            <label className="nodrag flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 py-2 text-[11.5px] text-[var(--color-text-dim)] transition-colors hover:border-white/30 hover:text-[var(--color-text)]">
+              <Upload className="h-3 w-3" strokeWidth={2} />
+              Replace with own image
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onOverrideFile(f);
+                }}
+                className="hidden"
+              />
+            </label>
+          </div>
+        ) : (
+          <label className="nodrag flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 py-3 text-[12px] text-[var(--color-text-dim)] transition-colors hover:border-white/30 hover:text-[var(--color-text)]">
+            <Upload className="h-3.5 w-3.5" strokeWidth={1.8} />
+            Upload to skip generation
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onOverrideFile(f);
+              }}
+              className="hidden"
+            />
+          </label>
+        )}
       </LabeledField>
     </div>
   );

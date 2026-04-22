@@ -11,6 +11,26 @@ import {
 } from "@xyflow/react";
 import type { CanvasEdge, CanvasNode, CanvasNodeData, NodeStatus } from "./types";
 
+interface HistorySnapshot {
+  nodes: CanvasNode[];
+  edges: CanvasEdge[];
+  reason: string;
+}
+
+const HISTORY_MAX = 12;
+
+function snapshot(s: { nodes: CanvasNode[]; edges: CanvasEdge[] }, reason: string): HistorySnapshot {
+  return {
+    nodes: s.nodes.map((n) => ({ ...n, data: { ...n.data } })),
+    edges: s.edges.map((e) => ({ ...e })),
+    reason,
+  };
+}
+
+function pushed(history: HistorySnapshot[], snap: HistorySnapshot): HistorySnapshot[] {
+  return [...history, snap].slice(-HISTORY_MAX);
+}
+
 interface CanvasState {
   nodes: CanvasNode[];
   edges: CanvasEdge[];
@@ -19,6 +39,8 @@ interface CanvasState {
   workflowId: string | null;
   workflowName: string;
   hydrated: boolean;
+  history: HistorySnapshot[];
+  rightPanelTab: "inspector" | "chat" | null;
   onNodesChange: (changes: NodeChange<CanvasNode>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -32,14 +54,17 @@ interface CanvasState {
   setRunning: (v: boolean) => void;
   removeNode: (id: string) => void;
   addNode: (node: CanvasNode) => void;
+  removeOrphanEdgesFor: (nodeIds: string[]) => void;
   setWorkflow: (id: string | null, name: string, nodes: CanvasNode[], edges: CanvasEdge[]) => void;
   setWorkflowName: (name: string) => void;
   setHydrated: (v: boolean) => void;
-  rightPanelTab: "inspector" | "chat" | null;
   setRightPanelTab: (t: "inspector" | "chat" | null) => void;
+  pushHistory: (reason: string) => void;
+  undo: () => HistorySnapshot | null;
+  clearHistory: () => void;
 }
 
-export const useCanvasStore = create<CanvasState>((set) => ({
+export const useCanvasStore = create<CanvasState>((set, get) => ({
   nodes: [],
   edges: [],
   isRunning: false,
@@ -48,6 +73,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   workflowName: "Untitled",
   hydrated: false,
   rightPanelTab: null,
+  history: [],
   onNodesChange: (changes) =>
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
   onEdgesChange: (changes) =>
@@ -57,7 +83,18 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
   replaceGraph: (nodes, edges) =>
-    set((s) => ({ nodes, edges, graphVersion: s.graphVersion + 1 })),
+    set((s) => {
+      const history =
+        s.nodes.length || s.edges.length
+          ? pushed(s.history, snapshot(s, "Replace graph"))
+          : s.history;
+      return {
+        nodes,
+        edges,
+        graphVersion: s.graphVersion + 1,
+        history,
+      };
+    }),
   patchNodeData: (id, patch) =>
     set((s) => ({
       nodes: s.nodes.map((n) =>
@@ -103,11 +140,18 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       nodes: s.nodes.filter((n) => n.id !== id),
       edges: s.edges.filter((e) => e.source !== id && e.target !== id),
       graphVersion: s.graphVersion + 1,
+      history: pushed(s.history, snapshot(s, `Delete node ${id}`)),
     })),
   addNode: (node) =>
     set((s) => ({
       nodes: [...s.nodes, node],
     })),
+  removeOrphanEdgesFor: (nodeIds) => {
+    const ids = new Set(nodeIds);
+    set((s) => ({
+      edges: s.edges.filter((e) => !ids.has(e.source) && !ids.has(e.target)),
+    }));
+  },
   setWorkflow: (id, name, nodes, edges) =>
     set((s) => ({
       workflowId: id,
@@ -115,8 +159,27 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       nodes,
       edges,
       graphVersion: s.graphVersion + 1,
+      history: [],
     })),
   setWorkflowName: (name) => set({ workflowName: name }),
   setHydrated: (v) => set({ hydrated: v }),
   setRightPanelTab: (t) => set({ rightPanelTab: t }),
+  pushHistory: (reason) =>
+    set((s) => {
+      if (!s.nodes.length && !s.edges.length) return s;
+      return { history: pushed(s.history, snapshot(s, reason)) };
+    }),
+  undo: () => {
+    const s = get();
+    const last = s.history[s.history.length - 1];
+    if (!last) return null;
+    set({
+      nodes: last.nodes,
+      edges: last.edges,
+      history: s.history.slice(0, -1),
+      graphVersion: s.graphVersion + 1,
+    });
+    return last;
+  },
+  clearHistory: () => set({ history: [] }),
 }));

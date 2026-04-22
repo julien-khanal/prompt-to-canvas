@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookMarked, FolderOpen, Loader2, MessageSquare, Play, Settings } from "lucide-react";
+import { BookMarked, FolderOpen, Loader2, MessageSquare, Play, Settings, Undo2 } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { RightPanel } from "@/components/inspector/RightPanel";
@@ -11,6 +11,7 @@ import { SkillWizard } from "@/components/skills/SkillWizard";
 import { PromptBox } from "@/components/prompt/PromptBox";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
+import { useUndoShortcut } from "@/lib/hooks/useUndoShortcut";
 import { runWorkflow } from "@/lib/executor/runWorkflow";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export function CanvasShell() {
   const [skillsOpen, setSkillsOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   useWorkflowPersistence();
+  useUndoShortcut();
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <Canvas />
@@ -64,6 +66,8 @@ function TopBar({
   const setName = useCanvasStore((s) => s.setWorkflowName);
   const setRightPanelTab = useCanvasStore((s) => s.setRightPanelTab);
   const rightPanelTab = useCanvasStore((s) => s.rightPanelTab);
+  const canUndo = useCanvasStore((s) => s.history.length > 0);
+  const undo = useCanvasStore((s) => s.undo);
   return (
     <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-6 py-4">
       <div className="pointer-events-auto flex items-center gap-3">
@@ -87,6 +91,15 @@ function TopBar({
         />
       </div>
       <div className="pointer-events-auto flex items-center gap-2">
+        <button
+          onClick={() => undo()}
+          disabled={!canUndo}
+          aria-label="Undo (Cmd+Z)"
+          title={canUndo ? "Undo last change (⌘Z)" : "Nothing to undo"}
+          className="glass inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-dim)] transition-colors hover:text-[var(--color-text)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Undo2 className="h-4 w-4" strokeWidth={1.7} />
+        </button>
         <button
           onClick={onOpenDashboard}
           aria-label="Workflows"

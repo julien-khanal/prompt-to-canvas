@@ -30,10 +30,8 @@ export function NativeSelect<T extends string>({
       <select
         value={value}
         onChange={(e) => onValueChange(e.target.value as T)}
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
         className={cn(
-          "appearance-none rounded-full border border-white/10 bg-white/[0.04] tracking-tight text-[var(--color-text-dim)] transition-colors hover:text-[var(--color-text)] focus:border-[var(--color-g-blue)]/60 focus:outline-none",
+          "nodrag nopan nowheel appearance-none rounded-full border border-white/10 bg-white/[0.04] tracking-tight text-[var(--color-text-dim)] transition-colors hover:text-[var(--color-text)] focus:border-[var(--color-g-blue)]/60 focus:outline-none",
           padding
         )}
         {...rest}

@@ -163,13 +163,12 @@ function RunButton({ nodeId, status }: { nodeId: string; status: NodeStatus }) {
   const running = status === "running";
   return (
     <button
-      onClick={(e) => {
-        e.stopPropagation();
+      onClick={() => {
         if (!running) void executeNode(nodeId);
       }}
       disabled={running}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-all",
+        "nodrag inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium transition-all",
         running
           ? "bg-white/[0.06] text-[var(--color-text-faint)]"
           : "bg-gradient-primary text-white hover:brightness-110 active:brightness-95 shadow-glow-blue"

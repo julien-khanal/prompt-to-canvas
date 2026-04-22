@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookMarked, FolderOpen, Loader2, MessageSquare, Play, Settings, Square, Undo2 } from "lucide-react";
+import { BookMarked, FolderOpen, Loader2, MessageSquare, Play, Radio, Settings, Square, Undo2 } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { RightPanel } from "@/components/inspector/RightPanel";
@@ -14,6 +14,7 @@ import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
 import { useUndoShortcut } from "@/lib/hooks/useUndoShortcut";
 import { useNodeShortcuts } from "@/lib/hooks/useNodeShortcuts";
 import { useCoworkBridge } from "@/lib/hooks/useCoworkBridge";
+import { useReactiveCanvas } from "@/lib/hooks/useReactiveCanvas";
 import { runWorkflow, abortWorkflowRun } from "@/lib/executor/runWorkflow";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ export function CanvasShell() {
   useUndoShortcut();
   useNodeShortcuts();
   useCoworkBridge();
+  useReactiveCanvas();
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <Canvas />
@@ -72,6 +74,10 @@ function TopBar({
   const rightPanelTab = useCanvasStore((s) => s.rightPanelTab);
   const canUndo = useCanvasStore((s) => s.history.length > 0);
   const undo = useCanvasStore((s) => s.undo);
+  const reactiveMode = useCanvasStore((s) => s.reactiveMode);
+  const setReactiveMode = useCanvasStore((s) => s.setReactiveMode);
+  const reactiveSpent = useCanvasStore((s) => s.reactiveSpentLastMin);
+  const reactiveBudget = useCanvasStore((s) => s.reactiveBudgetPerMin);
   return (
     <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-6 py-4">
       <div className="pointer-events-auto flex items-center gap-3">
@@ -95,6 +101,24 @@ function TopBar({
         />
       </div>
       <div className="pointer-events-auto flex items-center gap-2">
+        <button
+          onClick={() => setReactiveMode(!reactiveMode)}
+          aria-label="Reactive mode"
+          title={
+            reactiveMode
+              ? `Reactive ON · ${reactiveSpent}/${reactiveBudget} runs in last 60s`
+              : "Toggle reactive: changes auto-rerun downstream nodes"
+          }
+          className={cn(
+            "glass inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[11px] transition-colors",
+            reactiveMode
+              ? "text-white ring-1 ring-[var(--color-g-blue)]/60"
+              : "text-[var(--color-text-faint)] hover:text-[var(--color-text-dim)]"
+          )}
+        >
+          <Radio className={cn("h-3.5 w-3.5", reactiveMode && "text-[var(--color-g-blue)]")} strokeWidth={1.8} />
+          {reactiveMode ? `${reactiveSpent}/${reactiveBudget}` : "Reactive"}
+        </button>
         <button
           onClick={() => undo()}
           disabled={!canUndo}

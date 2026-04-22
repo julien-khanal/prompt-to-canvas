@@ -37,6 +37,9 @@ interface CanvasState {
   isRunning: boolean;
   runAbortController: AbortController | null;
   graphVersion: number;
+  reactiveMode: boolean;
+  reactiveBudgetPerMin: number;
+  reactiveSpentLastMin: number;
   workflowId: string | null;
   workflowName: string;
   activeSkillIds: string[];
@@ -55,6 +58,10 @@ interface CanvasState {
   resetRunStatuses: () => void;
   setRunning: (v: boolean) => void;
   setRunAbortController: (c: AbortController | null) => void;
+  setReactiveMode: (v: boolean) => void;
+  setReactiveBudgetPerMin: (n: number) => void;
+  noteReactiveSpend: (n: number) => void;
+  resetReactiveSpend: () => void;
   removeNode: (id: string) => void;
   addNode: (node: CanvasNode) => void;
   removeOrphanEdgesFor: (nodeIds: string[]) => void;
@@ -75,6 +82,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isRunning: false,
   runAbortController: null,
   graphVersion: 0,
+  reactiveMode: false,
+  reactiveBudgetPerMin: 12,
+  reactiveSpentLastMin: 0,
   workflowId: null,
   workflowName: "Untitled",
   activeSkillIds: [],
@@ -143,6 +153,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })),
   setRunning: (v) => set({ isRunning: v }),
   setRunAbortController: (c) => set({ runAbortController: c }),
+  setReactiveMode: (v) => set({ reactiveMode: v }),
+  setReactiveBudgetPerMin: (n) => set({ reactiveBudgetPerMin: Math.max(1, n) }),
+  noteReactiveSpend: (n) =>
+    set((s) => ({ reactiveSpentLastMin: s.reactiveSpentLastMin + n })),
+  resetReactiveSpend: () => set({ reactiveSpentLastMin: 0 }),
   removeNode: (id) =>
     set((s) => ({
       nodes: s.nodes.filter((n) => n.id !== id),

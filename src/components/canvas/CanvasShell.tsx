@@ -13,6 +13,7 @@ import { useCanvasStore } from "@/lib/canvas/store";
 import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
 import { useUndoShortcut } from "@/lib/hooks/useUndoShortcut";
 import { useNodeShortcuts } from "@/lib/hooks/useNodeShortcuts";
+import { useCoworkBridge } from "@/lib/hooks/useCoworkBridge";
 import { runWorkflow, abortWorkflowRun } from "@/lib/executor/runWorkflow";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export function CanvasShell() {
   useWorkflowPersistence();
   useUndoShortcut();
   useNodeShortcuts();
+  useCoworkBridge();
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <Canvas />

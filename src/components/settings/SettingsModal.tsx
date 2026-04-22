@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Radio, ShieldCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button, Hint, Input, Label } from "@/components/ui/field";
 import { useApiKeys, type ApiKeyId } from "@/lib/hooks/useApiKeys";
+import { getCoworkSecret, setCoworkSecret } from "@/lib/cowork/clientApi";
 
 interface Props {
   open: boolean;
@@ -23,6 +24,8 @@ export function SettingsModal({ open, onOpenChange }: Props) {
   const [gemini, setGemini] = useState("");
   const [showAnth, setShowAnth] = useState(false);
   const [showGem, setShowGem] = useState(false);
+  const [showCowork, setShowCowork] = useState(false);
+  const [coworkSecret, setCoworkSecretLocal] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -30,6 +33,7 @@ export function SettingsModal({ open, onOpenChange }: Props) {
     if (open && !loading) {
       setAnthropic(state.anthropic.value);
       setGemini(state.gemini.value);
+      setCoworkSecretLocal(getCoworkSecret() ?? "");
       setSaved(false);
     }
   }, [open, loading, state.anthropic.value, state.gemini.value]);
@@ -37,6 +41,7 @@ export function SettingsModal({ open, onOpenChange }: Props) {
   const onSave = async () => {
     setSaving(true);
     await Promise.all([save("anthropic", anthropic), save("gemini", gemini)]);
+    setCoworkSecret(coworkSecret);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
@@ -90,6 +95,44 @@ export function SettingsModal({ open, onOpenChange }: Props) {
             <ShieldCheck className="h-3.5 w-3.5 flex-none text-[var(--color-g-green)]" />
             Keys are AES-GCM encrypted with a per-browser-fingerprint key. Clear
             your browser data to delete them.
+          </div>
+
+          <div className="space-y-1.5 border-t border-white/5 pt-4">
+            <div className="flex items-center justify-between">
+              <Label>
+                <span className="inline-flex items-center gap-1.5">
+                  <Radio className="h-3 w-3" /> Cowork bridge secret
+                </span>
+              </Label>
+              {coworkSecret && (
+                <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-[var(--color-g-green)]">
+                  <CheckCircle2 className="h-3 w-3" /> connected
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <Input
+                type={showCowork ? "text" : "password"}
+                value={coworkSecret}
+                onChange={(e) => setCoworkSecretLocal(e.target.value)}
+                placeholder="Same value as COWORK_API_SECRET in .env.local"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <div className="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCowork((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--color-text-faint)] transition-colors hover:bg-white/5 hover:text-[var(--color-text)]"
+                >
+                  {showCowork ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+            </div>
+            <Hint>
+              Optional. Set to enable Claude Cowork to read this canvas + run commands. Stored in
+              localStorage (not encrypted), used only as a header on requests to /api/external/*.
+            </Hint>
           </div>
         </div>
 

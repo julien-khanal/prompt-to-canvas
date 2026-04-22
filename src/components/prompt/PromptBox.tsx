@@ -20,7 +20,9 @@ import {
   type StructuredValues,
 } from "./StructuredForm";
 import { SkillChips } from "./SkillChips";
+import { GenerateConfirmDialog, type ConfirmChoice } from "./GenerateConfirmDialog";
 import { humanizeError } from "@/lib/errors/humanize";
+import { createWorkflow, setLastOpened } from "@/lib/db/workflows";
 
 type Mode = "free" | "structured";
 
@@ -30,7 +32,11 @@ export function PromptBox({ onOpenSkills }: { onOpenSkills: () => void }) {
   const [structured, setStructured] = useState<StructuredValues>(EMPTY_STRUCTURED);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { replaceGraph } = useCanvasStore();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const replaceGraph = useCanvasStore((s) => s.replaceGraph);
+  const setWorkflow = useCanvasStore((s) => s.setWorkflow);
+  const currentName = useCanvasStore((s) => s.workflowName);
+  const currentNodeCount = useCanvasStore((s) => s.nodes.length);
 
   const canSubmit = !loading && (mode === "free"
     ? value.trim().length > 3
@@ -38,6 +44,14 @@ export function PromptBox({ onOpenSkills }: { onOpenSkills: () => void }) {
 
   const submit = async () => {
     if (!canSubmit) return;
+    if (currentNodeCount > 0) {
+      setConfirmOpen(true);
+      return;
+    }
+    await runGenerate("replace");
+  };
+
+  const runGenerate = async (choice: "replace" | "new") => {
     setLoading(true);
     setError(null);
     const prompt =
@@ -60,7 +74,13 @@ export function PromptBox({ onOpenSkills }: { onOpenSkills: () => void }) {
           }
         }
       }
-      replaceGraph(nodes, edges);
+      if (choice === "new") {
+        const fresh = await createWorkflow(deriveWorkflowName(prompt));
+        await setLastOpened(fresh.id);
+        setWorkflow(fresh.id, fresh.name, nodes, edges);
+      } else {
+        replaceGraph(nodes, edges);
+      }
       setValue("");
       setStructured(EMPTY_STRUCTURED);
     } catch (err) {
@@ -68,6 +88,12 @@ export function PromptBox({ onOpenSkills }: { onOpenSkills: () => void }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onConfirm = (choice: ConfirmChoice) => {
+    setConfirmOpen(false);
+    if (choice === "cancel") return;
+    void runGenerate(choice);
   };
 
   const onKeyDown: React.KeyboardEventHandler<HTMLInputElement | HTMLTextAreaElement> = (e) => {
@@ -78,6 +104,13 @@ export function PromptBox({ onOpenSkills }: { onOpenSkills: () => void }) {
   };
 
   return (
+    <>
+    <GenerateConfirmDialog
+      open={confirmOpen}
+      currentName={currentName}
+      nodeCount={currentNodeCount}
+      onChoose={onConfirm}
+    />
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
@@ -180,7 +213,14 @@ export function PromptBox({ onOpenSkills }: { onOpenSkills: () => void }) {
           : "Click submit to generate · Structured brief · Fields replace the free prompt"}
       </p>
     </motion.div>
+    </>
   );
+}
+
+function deriveWorkflowName(prompt: string): string {
+  const trimmed = prompt.trim().split("\n")[0];
+  const truncated = trimmed.length > 48 ? trimmed.slice(0, 48) + "…" : trimmed;
+  return truncated || "Untitled";
 }
 
 function ModeToggle({

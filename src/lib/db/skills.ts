@@ -50,6 +50,17 @@ export async function listEnabledSkills(): Promise<Skill[]> {
   });
 }
 
+export async function listActiveSkillsFor(activeIds: string[]): Promise<Skill[]> {
+  const all = await db().skills.toArray();
+  const ids = new Set(activeIds);
+  return all
+    .filter((s) => s.alwaysOn || ids.has(s.id))
+    .sort((a, b) => {
+      if (a.alwaysOn !== b.alwaysOn) return a.alwaysOn ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 export const TOKEN_PER_CHAR_ESTIMATE = 0.27;
 
 export function estimateTokens(text: string): number {

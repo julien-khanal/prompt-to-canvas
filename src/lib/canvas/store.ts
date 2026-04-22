@@ -38,6 +38,7 @@ interface CanvasState {
   graphVersion: number;
   workflowId: string | null;
   workflowName: string;
+  activeSkillIds: string[];
   hydrated: boolean;
   history: HistorySnapshot[];
   rightPanelTab: "inspector" | "chat" | null;
@@ -55,8 +56,10 @@ interface CanvasState {
   removeNode: (id: string) => void;
   addNode: (node: CanvasNode) => void;
   removeOrphanEdgesFor: (nodeIds: string[]) => void;
-  setWorkflow: (id: string | null, name: string, nodes: CanvasNode[], edges: CanvasEdge[]) => void;
+  setWorkflow: (id: string | null, name: string, nodes: CanvasNode[], edges: CanvasEdge[], activeSkillIds?: string[]) => void;
   setWorkflowName: (name: string) => void;
+  setActiveSkillIds: (ids: string[]) => void;
+  toggleSkillActive: (id: string) => void;
   setHydrated: (v: boolean) => void;
   setRightPanelTab: (t: "inspector" | "chat" | null) => void;
   pushHistory: (reason: string) => void;
@@ -71,6 +74,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   graphVersion: 0,
   workflowId: null,
   workflowName: "Untitled",
+  activeSkillIds: [],
   hydrated: false,
   rightPanelTab: null,
   history: [],
@@ -152,16 +156,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: s.edges.filter((e) => !ids.has(e.source) && !ids.has(e.target)),
     }));
   },
-  setWorkflow: (id, name, nodes, edges) =>
+  setWorkflow: (id, name, nodes, edges, activeSkillIds) =>
     set((s) => ({
       workflowId: id,
       workflowName: name,
       nodes,
       edges,
+      activeSkillIds: activeSkillIds ?? [],
       graphVersion: s.graphVersion + 1,
       history: [],
     })),
   setWorkflowName: (name) => set({ workflowName: name }),
+  setActiveSkillIds: (ids) => set({ activeSkillIds: ids }),
+  toggleSkillActive: (id) =>
+    set((s) => {
+      const has = s.activeSkillIds.includes(id);
+      return {
+        activeSkillIds: has
+          ? s.activeSkillIds.filter((x) => x !== id)
+          : [...s.activeSkillIds, id],
+      };
+    }),
   setHydrated: (v) => set({ hydrated: v }),
   setRightPanelTab: (t) => set({ rightPanelTab: t }),
   pushHistory: (reason) =>

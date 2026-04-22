@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 import { useSkills } from "@/lib/hooks/useSkills";
 import { estimateTokens, MAX_ENABLED_SKILLS, type Skill } from "@/lib/db/skills";
+import { useCanvasStore } from "@/lib/canvas/store";
 
 type Mode = "list" | "edit" | "wizard";
 
@@ -33,7 +34,9 @@ export function SkillsModal({
   onOpenChange: (v: boolean) => void;
   onOpenWizard: (initialGoal?: string) => void;
 }) {
-  const { skills, create, update, remove, toggle } = useSkills();
+  const { skills, create, update, remove } = useSkills();
+  const activeSkillIds = useCanvasStore((s) => s.activeSkillIds);
+  const toggleActive = useCanvasStore((s) => s.toggleSkillActive);
   const [mode, setMode] = useState<Mode>("list");
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = useMemo(
@@ -45,7 +48,8 @@ export function SkillsModal({
     if (open) setMode("list");
   }, [open]);
 
-  const enabledCount = skills.filter((s) => s.enabled || s.alwaysOn).length;
+  const isActive = (s: Skill) => s.alwaysOn || activeSkillIds.includes(s.id);
+  const enabledCount = skills.filter(isActive).length;
 
   const startNew = async () => {
     const sk = await create({
@@ -79,28 +83,28 @@ export function SkillsModal({
           <DialogDescription>
             {mode === "edit"
               ? "Edit this skill. Markdown body is sent as a cached system block."
-              : `Reusable knowledge cards. Up to ${MAX_ENABLED_SKILLS} can be active at once for efficient prompt caching. Currently active: ${enabledCount}.`}
+              : `Reusable knowledge cards. Up to ${MAX_ENABLED_SKILLS} can be active per workflow for efficient caching. Active in this workflow: ${enabledCount}.`}
           </DialogDescription>
         </DialogHeader>
 
         {mode === "list" ? (
           <SkillList
             skills={skills}
+            isActive={isActive}
             onEdit={(id) => {
               setEditingId(id);
               setMode("edit");
             }}
-            onToggle={async (id, on) => {
+            onToggle={(id, on) => {
+              const skill = skills.find((s) => s.id === id);
+              if (!skill || skill.alwaysOn) return;
               if (on && enabledCount >= MAX_ENABLED_SKILLS) {
-                const skill = skills.find((s) => s.id === id);
-                if (skill && !skill.alwaysOn) {
-                  alert(
-                    `You can have at most ${MAX_ENABLED_SKILLS} skills active at once. Disable one first.`
-                  );
-                  return;
-                }
+                alert(
+                  `Workflow already has ${MAX_ENABLED_SKILLS} active skills. Disable one first.`
+                );
+                return;
               }
-              await toggle(id, on);
+              toggleActive(id);
             }}
             onPin={async (id, alwaysOn) => {
               if (alwaysOn && enabledCount >= MAX_ENABLED_SKILLS) {
@@ -146,12 +150,14 @@ export function SkillsModal({
 
 function SkillList({
   skills,
+  isActive,
   onEdit,
   onToggle,
   onPin,
   onDelete,
 }: {
   skills: Skill[];
+  isActive: (s: Skill) => boolean;
   onEdit: (id: string) => void;
   onToggle: (id: string, on: boolean) => void;
   onPin: (id: string, alwaysOn: boolean) => void;
@@ -168,7 +174,7 @@ function SkillList({
   return (
     <ul className="nowheel max-h-[420px] space-y-1.5 overflow-y-auto pr-1">
       {skills.map((s) => {
-        const isOn = s.enabled || s.alwaysOn;
+        const isOn = isActive(s);
         return (
           <li
             key={s.id}

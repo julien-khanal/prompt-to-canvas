@@ -22,7 +22,8 @@ export async function saveWorkflow(
   id: string,
   name: string,
   nodes: CanvasNode[],
-  edges: CanvasEdge[]
+  edges: CanvasEdge[],
+  activeSkillIds?: string[]
 ): Promise<void> {
   const existing = await db().workflows.get(id);
   const now = Date.now();
@@ -31,6 +32,7 @@ export async function saveWorkflow(
     name,
     nodes,
     edges,
+    activeSkillIds: activeSkillIds ?? existing?.activeSkillIds ?? [],
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   });
@@ -55,6 +57,7 @@ export async function loadWorkflow(id: string): Promise<{
   name: string;
   nodes: CanvasNode[];
   edges: CanvasEdge[];
+  activeSkillIds: string[];
 } | null> {
   const rec = await db().workflows.get(id);
   if (!rec) return null;
@@ -62,6 +65,7 @@ export async function loadWorkflow(id: string): Promise<{
     name: rec.name,
     nodes: rec.nodes as CanvasNode[],
     edges: rec.edges as CanvasEdge[],
+    activeSkillIds: rec.activeSkillIds ?? [],
   };
 }
 

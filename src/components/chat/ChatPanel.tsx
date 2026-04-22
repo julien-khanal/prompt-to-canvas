@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Send, Sparkles, User } from "lucide-react";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { getKey } from "@/lib/crypto/keyring";
-import { listEnabledSkills } from "@/lib/db/skills";
+import { listActiveSkillsFor } from "@/lib/db/skills";
 import { buildSnapshot } from "@/lib/chat/snapshot";
 import { parseChatMessage, type Suggestion } from "@/lib/chat/parseSuggestions";
 import { validateApply } from "@/lib/chat/applyValidation";
@@ -50,9 +50,9 @@ export function ChatPanel() {
     setDraft("");
     setLoading(true);
     try {
-      const { nodes, edges } = useCanvasStore.getState();
+      const { nodes, edges, activeSkillIds } = useCanvasStore.getState();
       const snapshot = buildSnapshot(workflowName, nodes, edges);
-      const skills = await listEnabledSkills();
+      const skills = await listActiveSkillsFor(activeSkillIds);
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },

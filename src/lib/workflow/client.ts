@@ -1,7 +1,8 @@
 "use client";
 
 import { getKey } from "@/lib/crypto/keyring";
-import { listEnabledSkills } from "@/lib/db/skills";
+import { listActiveSkillsFor } from "@/lib/db/skills";
+import { useCanvasStore } from "@/lib/canvas/store";
 import { parseWorkflow, type Workflow } from "./schema";
 
 export interface GenerateOk {
@@ -20,7 +21,8 @@ export async function generateWorkflowFromPrompt(prompt: string): Promise<Genera
   if (!anthropicKey)
     return { ok: false, error: "Add your Anthropic API key in Settings." };
 
-  const skills = await listEnabledSkills();
+  const activeIds = useCanvasStore.getState().activeSkillIds;
+  const skills = await listActiveSkillsFor(activeIds);
 
   try {
     const res = await fetch("/api/generate-workflow", {

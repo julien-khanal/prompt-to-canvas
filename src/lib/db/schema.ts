@@ -12,6 +12,7 @@ export interface WorkflowRecord {
   name: string;
   nodes: unknown;
   edges: unknown;
+  activeSkillIds?: string[];
   createdAt: number;
   updatedAt: number;
 }

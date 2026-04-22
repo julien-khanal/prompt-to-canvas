@@ -3,10 +3,14 @@
 import { Pin, Plus } from "lucide-react";
 import { useSkills } from "@/lib/hooks/useSkills";
 import { MAX_ENABLED_SKILLS } from "@/lib/db/skills";
+import { useCanvasStore } from "@/lib/canvas/store";
 import { cn } from "@/lib/utils";
 
 export function SkillChips({ onOpenLibrary }: { onOpenLibrary: () => void }) {
-  const { skills, toggle } = useSkills();
+  const { skills } = useSkills();
+  const activeSkillIds = useCanvasStore((s) => s.activeSkillIds);
+  const toggleActive = useCanvasStore((s) => s.toggleSkillActive);
+
   if (!skills.length) {
     return (
       <button
@@ -19,12 +23,14 @@ export function SkillChips({ onOpenLibrary }: { onOpenLibrary: () => void }) {
     );
   }
 
-  const enabledCount = skills.filter((s) => s.enabled || s.alwaysOn).length;
+  const isActive = (id: string, alwaysOn: boolean) =>
+    alwaysOn || activeSkillIds.includes(id);
+  const enabledCount = skills.filter((s) => isActive(s.id, s.alwaysOn)).length;
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {skills.map((s) => {
-        const isOn = s.enabled || s.alwaysOn;
+        const isOn = isActive(s.id, s.alwaysOn);
         const blocked = !isOn && enabledCount >= MAX_ENABLED_SKILLS;
         return (
           <button
@@ -35,7 +41,7 @@ export function SkillChips({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                 onOpenLibrary();
                 return;
               }
-              void toggle(s.id, !s.enabled);
+              toggleActive(s.id);
             }}
             title={
               s.alwaysOn
@@ -43,8 +49,8 @@ export function SkillChips({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                 : blocked
                   ? `Limit ${MAX_ENABLED_SKILLS} — disable another first`
                   : isOn
-                    ? `Click to disable: ${s.description}`
-                    : `Click to enable: ${s.description}`
+                    ? `Click to disable for this workflow: ${s.description}`
+                    : `Click to enable for this workflow: ${s.description}`
             }
             className={cn(
               "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[11px] tracking-tight transition-all",

@@ -21,6 +21,7 @@ export function useWorkflowPersistence() {
   const nodes = useCanvasStore((s) => s.nodes);
   const edges = useCanvasStore((s) => s.edges);
 
+  const activeSkillIds = useCanvasStore((s) => s.activeSkillIds);
   const lastSavedSig = useRef<string>("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -31,31 +32,31 @@ export function useWorkflowPersistence() {
       if (last) {
         const wf = await loadWorkflow(last);
         if (wf) {
-          setWorkflow(last, wf.name, wf.nodes, wf.edges);
+          setWorkflow(last, wf.name, wf.nodes, wf.edges, wf.activeSkillIds);
           setHydrated(true);
           return;
         }
       }
       const fresh = await createWorkflow();
       await setLastOpened(fresh.id);
-      setWorkflow(fresh.id, fresh.name, [], []);
+      setWorkflow(fresh.id, fresh.name, [], [], []);
       setHydrated(true);
     })();
   }, [hydrated, setHydrated, setWorkflow]);
 
   useEffect(() => {
     if (!hydrated || !workflowId) return;
-    const sig = `${workflowName}::${nodes.length}::${edges.length}::${JSON.stringify(nodes)}::${JSON.stringify(edges)}`;
+    const sig = `${workflowName}::${nodes.length}::${edges.length}::${activeSkillIds.join(",")}::${JSON.stringify(nodes)}::${JSON.stringify(edges)}`;
     if (sig === lastSavedSig.current) return;
 
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       lastSavedSig.current = sig;
-      await saveWorkflow(workflowId, workflowName, nodes, edges);
+      await saveWorkflow(workflowId, workflowName, nodes, edges, activeSkillIds);
     }, AUTOSAVE_DEBOUNCE_MS);
 
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [hydrated, workflowId, workflowName, nodes, edges]);
+  }, [hydrated, workflowId, workflowName, nodes, edges, activeSkillIds]);
 }

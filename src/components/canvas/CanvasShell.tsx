@@ -7,6 +7,7 @@ import { SettingsModal } from "@/components/settings/SettingsModal";
 import { Inspector } from "@/components/inspector/Inspector";
 import { DashboardModal } from "@/components/dashboard/DashboardModal";
 import { SkillsModal } from "@/components/skills/SkillsModal";
+import { SkillWizard } from "@/components/skills/SkillWizard";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
 import { runWorkflow } from "@/lib/executor/runWorkflow";
@@ -16,6 +17,7 @@ export function CanvasShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
   const [skillsOpen, setSkillsOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   useWorkflowPersistence();
   return (
     <div className="relative h-screen w-screen overflow-hidden">
@@ -33,8 +35,13 @@ export function CanvasShell() {
         onOpenChange={setSkillsOpen}
         onOpenWizard={() => {
           setSkillsOpen(false);
-          /* wizard wired in 9.4 */
+          setWizardOpen(true);
         }}
+      />
+      <SkillWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onCreated={() => setSkillsOpen(true)}
       />
     </div>
   );

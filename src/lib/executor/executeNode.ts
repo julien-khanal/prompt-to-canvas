@@ -88,6 +88,15 @@ async function runCritic(
     return { ok: false, error: "Anthropic key missing" };
   }
 
+  if (!data.criteria?.trim()) {
+    store.setNodeStatus(
+      node.id,
+      "error",
+      "Critic has no criteria — open Inspector and add evaluation criteria."
+    );
+    return { ok: false, error: "criteria empty" };
+  }
+
   const maxIter = Math.max(1, Math.min(5, data.maxIterations));
   let iter = 0;
 

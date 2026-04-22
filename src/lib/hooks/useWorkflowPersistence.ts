@@ -46,6 +46,7 @@ export function useWorkflowPersistence() {
 
   useEffect(() => {
     if (!hydrated || !workflowId) return;
+    if (workflowId === "__transient__") return;
     const sig = `${workflowName}::${nodes.length}::${edges.length}::${activeSkillIds.join(",")}::${JSON.stringify(nodes)}::${JSON.stringify(edges)}`;
     if (sig === lastSavedSig.current) return;
 

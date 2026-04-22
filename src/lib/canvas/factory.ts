@@ -49,6 +49,7 @@ export function createNode(kind: Kind, position: { x: number; y: number }): Canv
           label: "Reference",
           status: "idle",
           source: "url",
+          role: "style",
         },
       };
     case "output":

@@ -17,6 +17,7 @@ import type {
   ImageResolution,
   OutputNodeData,
   PromptNodeData,
+  RefRole,
 } from "@/lib/canvas/types";
 
 const CLAUDE_MODELS: { value: ClaudeModel; label: string }[] = [
@@ -41,6 +42,14 @@ const RESOLUTIONS: { value: ImageResolution; label: string }[] = [
   { value: "1K", label: "1K" },
   { value: "2K", label: "2K" },
   { value: "4K", label: "4K" },
+];
+
+const REF_ROLES: { value: RefRole; label: string }[] = [
+  { value: "style", label: "Style" },
+  { value: "subject", label: "Subject" },
+  { value: "palette", label: "Palette" },
+  { value: "composition", label: "Composition" },
+  { value: "pose", label: "Pose" },
 ];
 
 export function Inspector() {
@@ -269,6 +278,16 @@ function ImageRefBody({
     <div className="space-y-4 pt-4">
       <LabeledField label="Label">
         <TextInput value={data.label} onChange={(label) => onPatch({ label })} />
+      </LabeledField>
+      <LabeledField
+        label="Role"
+        hint="How downstream image nodes should use this ref"
+      >
+        <ChipGroup
+          options={REF_ROLES}
+          value={data.role ?? "style"}
+          onChange={(role) => onPatch({ role })}
+        />
       </LabeledField>
       {preview && (
         <LabeledField label="Preview">

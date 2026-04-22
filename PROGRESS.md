@@ -1,35 +1,40 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 7
+Phase: 8 (Usability Pass)
 Status: done
-Letzter Commit: Phase-7 (README + Demo-Seed + finaler DoD-Smoke)
+Letzter Commit: 8.6 Reference roles
 
-## MVP
-**Fertig.** Alle 7 Phasen abgeschlossen, DoD §9 unten verifiziert.
+## Shipped in 8
+- **8.1** Drag-Stick gefixt — `nodrag/nopan/nowheel` statt `stopPropagation` auf interaktiven Children.
+- **8.2** Mode-Klarheit — Free vs Structured mit sichtbaren Headern; Free-Input wird im Structured-Mode nicht verwendet.
+- **8.3** Inspector-Panel (rechts) — editiert Label, Prompt, Model, Temperature (ausgegraut für Opus), Aspect, Resolution, System-Prompt, URL/Upload. "Reset cache" + "Run node" + "Delete node".
+- **8.4** Toolbox (links) — 4 Node-Typen per Drag-n-Drop aufs Canvas.
+- **8.5** Persistenz + Dashboard — Workflows auto-save (1.5 s debounced) in Dexie, Dashboard-Modal listet alle (open/rename/duplicate/delete/new), aktueller Name editierbar im TopBar, Reload restored last-opened.
+- **8.6** Reference-Roles — ImageRef-Node hat `role: style | subject | palette | composition | pose`, Executor injiziert Role-Hints ("Reference 1 (Brand ref): use for style.") in den Gemini-Prompt.
 
-## Definition-of-Done Checkliste (Briefing §9)
-1. ✅ `pnpm install && pnpm dev` startet fehlerfrei (verifiziert via `pnpm build`, 3 API-Routes dynamisch, kein TS/Lint-Fehler)
-2. ✅ Settings-Modal akzeptiert beide API-Keys + verschlüsselte IndexedDB-Speicherung (AES-GCM-256 / PBKDF2)
-3. ✅ Free-Prompt "Telekom Speedport Router in Meadow + 3 Varianten" → valider Workflow mit ≥ 3 verketteten Nodes (in live-Session verifiziert)
-4. ✅ Structured-Prompt mit Goal + Style + Aspect + Model + Variants + Refs → Generator akzeptiert, Refs werden als `imageRef.dataUrl` in den Graph injiziert
-5. ✅ Run-Button exekutiert Workflow; 1 Text-Node + 1 Bild-Node liefern Output (in Session-Screenshot dokumentiert: Concept-Text + 3 Variationen rendered)
-6. ✅ Gemini-Ästhetik durchgängig: Dark-Canvas, Blue→Purple→Coral Gradient-Edges, Glass-Nodes mit `backdrop-blur-xl`, Sparkle-Icons, Stagger-Entry, pulsierende Status-Dots, Dot-Grid, Radial-Ambient
-7. ✅ Cache-Hit bei identischem Re-Run (`CACHE`-Chip sichtbar in Session-Screenshot, Phase-3-Test bestätigt)
-8. ✅ README mit 3-Schritt-Setup, Stack, Architektur, Limitierungen (Screenshot-Slot bereit unter `docs/screenshot.png`, Julien füllt)
-9. ✅ Git hat 9 sinnvolle Commits (Phasen 1, 2, 3, 4, 5a, 5b, 6, 7 + 2 Hotfixes für Opus-`temperature` und React-Flow-Node-Frame)
-10. ✅ `PROGRESS.md` Status "done", keine offenen MVP-Punkte
+## Offen (Post-MVP, nicht blockend)
+- `docs/screenshot.png` befüllen
+- Custom-Edge mit Flow-Particles (default animated-Dashes genügen funktional)
+- Provider-Swap-ENV (Kie.ai)
+- Opus-4.7-Text-Fallback (OpenAI)
+- Edge-Level-Roles (aktuell Node-Level, einfacher und ausreichend)
 
-## Offen (Post-MVP, nicht DoD-kritisch)
-- `docs/screenshot.png` von Julien befüllen (Platzhalter-Hinweis vorhanden)
-- Custom-Edge mit Flow-Particles (statt default-animated dashes) für noch mehr Gemini-Signature
-- Provider-Swap-ENV (Kie.ai für Gemini) — Hook-Punkt existiert in der Route, nicht aktiviert
-- Opus-4.7-Temperature: deprecated-Hinweis im UI einblenden, wenn User auf Opus wechselt und Slider sichtbar hätte (aktuell: Slider nicht exposed — unkritisch)
+## Entscheidungen Phase 8
+- **Dashboard als Modal**, nicht als Route — kein Routing-Refactor nötig, Single-Page bleibt.
+- **Auto-Save über Signatur-Vergleich** (name + node-count + edge-count + JSON-stringified nodes/edges). Kein Overkill-Diffing, aber verhindert leere Save-Loops.
+- **Role auf ImageRef-Node**, nicht auf Edge — passt zum mentalen Modell ("dieses Bild ist meine Style-Referenz"), und erspart Edge-Selection-Handling im Inspector.
+- **`.nowheel`** auf Inspector-Body + Dashboard-Liste — Scroll funktioniert inside, blockt Canvas-Zoom.
 
-## Entscheidungen in dieser Session
-- **README.md** überschrieben (war create-next-app-Boilerplate): Kurz-Intro, 3-Schritt-Setup, Feature-Liste, Beispiel-Prompts (Free + Structured), Stack, Token-Disziplin, Architektur-Map, Limitations, Deploy-Hinweis.
-- **`docs/`** angelegt mit README-Hinweis für Screenshot-Path.
-- `AGENTS.md` behalten (minimal, 5 Zeilen, keine Entschlackung nötig).
+## Commits in Phase 8
+```
+8.1 Fix node drag-stick
+8.2 Mode clarity
+8.3 Inspector panel
+8.4 Toolbox (drag to create)
+8.5 Persistence + Dashboard
+8.6 Reference roles on ImageRef
+```
 
-## Resume (falls Post-MVP-Arbeit)
-Nächste Session: `claude` → `/model sonnet` → `PROGRESS.md` lesen → "Offen (Post-MVP)" als Ausgangspunkt. MVP ist shipbar.
+## Resume
+`claude` → `/model sonnet` → `PROGRESS.md` → falls Post-MVP-Arbeit gewünscht. MVP + Usability-Pass beide shipbar.

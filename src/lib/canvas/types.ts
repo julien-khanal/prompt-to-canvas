@@ -39,11 +39,19 @@ export interface ImageGenNodeData extends BaseNodeData {
   outputImage?: string;
 }
 
+export type RefRole =
+  | "style"
+  | "subject"
+  | "palette"
+  | "composition"
+  | "pose";
+
 export interface ImageRefNodeData extends BaseNodeData {
   kind: "imageRef";
   source: "upload" | "url";
   url?: string;
   dataUrl?: string;
+  role?: RefRole;
   width?: number;
   height?: number;
   sizeBytes?: number;

@@ -30,6 +30,7 @@ export function ImageRefNode({ id, data, selected }: NodeProps<CanvasNode>) {
           drop image or paste URL
         </div>
       )}
+      <NodeFieldRow label="Role">{d.role ?? "style"}</NodeFieldRow>
       <NodeFieldRow label="Source">{d.source}</NodeFieldRow>
       {d.width && d.height && (
         <NodeFieldRow label="Dim">{`${d.width}×${d.height}`}</NodeFieldRow>

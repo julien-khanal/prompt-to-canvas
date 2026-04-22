@@ -27,7 +27,7 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
     case "prompt":
       return runPrompt(node, node.data, inputs.text);
     case "imageGen":
-      return runImageGen(node, node.data, inputs.text, inputs.images);
+      return runImageGen(node, node.data, inputs.text, inputs.images, inputs.refs);
     case "imageRef":
       return { ok: true };
     case "output":
@@ -38,6 +38,7 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
 interface GatheredInputs {
   text: Array<{ label: string; text: string }>;
   images: string[];
+  refs: Array<{ url: string; role?: string; label: string }>;
 }
 
 function gatherInputs(
@@ -48,6 +49,7 @@ function gatherInputs(
   const sources = edges.filter((e) => e.target === node.id).map((e) => e.source);
   const text: GatheredInputs["text"] = [];
   const images: string[] = [];
+  const refs: GatheredInputs["refs"] = [];
   for (const srcId of sources) {
     const src = nodes.find((n) => n.id === srcId);
     if (!src) continue;
@@ -57,11 +59,13 @@ function gatherInputs(
       images.push(src.data.outputImage);
     } else if (src.data.kind === "imageRef") {
       const ref = src.data as ImageRefNodeData;
-      if (ref.dataUrl) images.push(ref.dataUrl);
-      else if (ref.url) images.push(ref.url);
+      const url = ref.dataUrl ?? ref.url;
+      if (!url) continue;
+      images.push(url);
+      refs.push({ url, role: ref.role, label: ref.label });
     }
   }
-  return { text, images };
+  return { text, images, refs };
 }
 
 async function runPrompt(
@@ -134,12 +138,21 @@ async function runImageGen(
   node: CanvasNode,
   data: ImageGenNodeData,
   upstreamText: Array<{ label: string; text: string }>,
-  refImages: string[]
+  refImages: string[],
+  refs: Array<{ url: string; role?: string; label: string }>
 ): Promise<ExecuteOutcome> {
   const store = useCanvasStore.getState();
+  const roleHint = refs.length
+    ? `\n\nReferences provided (in order):\n${refs
+        .map(
+          (r, i) =>
+            `- Reference ${i + 1} (${r.label}): use for ${r.role ?? "visual guidance"}.`
+        )
+        .join("\n")}`
+    : "";
   const effectivePrompt = upstreamText.length
-    ? `${data.prompt}\n\nContext:\n${upstreamText.map((i) => i.text).join("\n\n")}`
-    : data.prompt;
+    ? `${data.prompt}${roleHint}\n\nContext:\n${upstreamText.map((i) => i.text).join("\n\n")}`
+    : `${data.prompt}${roleHint}`;
 
   const params = {
     kind: "gemini",
@@ -148,6 +161,7 @@ async function runImageGen(
     aspectRatio: data.aspectRatio,
     resolution: data.resolution,
     refImageHashes: refImages.slice().sort(),
+    refRoles: refs.map((r) => r.role ?? "").sort(),
   };
   const hash = await hashFor(params);
   const cached = await getCached(hash);

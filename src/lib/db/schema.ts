@@ -28,11 +28,23 @@ export interface MetaRecord {
   value: unknown;
 }
 
+export interface SkillRecord {
+  id: string;
+  name: string;
+  description: string;
+  body: string;
+  enabled: boolean;
+  alwaysOn: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
 class PromptCanvasDB extends Dexie {
   keys!: EntityTable<EncryptedKeyRecord, "id">;
   workflows!: EntityTable<WorkflowRecord, "id">;
   resultCache!: EntityTable<ResultCacheRecord, "hash">;
   meta!: EntityTable<MetaRecord, "id">;
+  skills!: EntityTable<SkillRecord, "id">;
 
   constructor() {
     super("prompt-canvas");
@@ -41,6 +53,13 @@ class PromptCanvasDB extends Dexie {
       workflows: "&id, updatedAt",
       resultCache: "&hash, createdAt",
       meta: "&id",
+    });
+    this.version(2).stores({
+      keys: "&id, updatedAt",
+      workflows: "&id, updatedAt",
+      resultCache: "&hash, createdAt",
+      meta: "&id",
+      skills: "&id, name, enabled, alwaysOn, updatedAt",
     });
   }
 }

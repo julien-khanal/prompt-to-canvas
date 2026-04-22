@@ -1,40 +1,52 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 8 (Usability Pass)
+Phase: 9 (Skills + Chat) + 10 (Polish)
 Status: done
-Letzter Commit: 8.6 Reference roles
+Letzter Commit: 10 Polish
 
-## Shipped in 8
-- **8.1** Drag-Stick gefixt — `nodrag/nopan/nowheel` statt `stopPropagation` auf interaktiven Children.
-- **8.2** Mode-Klarheit — Free vs Structured mit sichtbaren Headern; Free-Input wird im Structured-Mode nicht verwendet.
-- **8.3** Inspector-Panel (rechts) — editiert Label, Prompt, Model, Temperature (ausgegraut für Opus), Aspect, Resolution, System-Prompt, URL/Upload. "Reset cache" + "Run node" + "Delete node".
-- **8.4** Toolbox (links) — 4 Node-Typen per Drag-n-Drop aufs Canvas.
-- **8.5** Persistenz + Dashboard — Workflows auto-save (1.5 s debounced) in Dexie, Dashboard-Modal listet alle (open/rename/duplicate/delete/new), aktueller Name editierbar im TopBar, Reload restored last-opened.
-- **8.6** Reference-Roles — ImageRef-Node hat `role: style | subject | palette | composition | pose`, Executor injiziert Role-Hints ("Reference 1 (Brand ref): use for style.") in den Gemini-Prompt.
+## Shipped in 9 (Skills + Chat)
+- **9.1** Dexie v2 `skills` table + CRUD, MAX_ENABLED_SKILLS=3
+- **9.2** Skills-Library-Modal (List, Edit, Toggle, Pin-als-always-on, Delete, Token-Schätzung)
+- **9.3** Workflow-Generator: enabled Skills als zusätzliche cached System-Blocks. Letzter Skill-Block trägt JSON-Reinforcement.
+- **9.4** Author-with-Claude Wizard (`/api/skills/draft`, Sonnet, strikter YAML+Markdown-Output, Draft → User reviews → Save)
+- **9.5** Skill-Chips im PromptBox — Pin-Icon für always-on, on-the-fly toggle, blockiert über Limit.
+- **9.6** RightPanel mit Tabs (Chat ⇄ Inspector), auto-switch zu Inspector bei Node-Selection
+- **9.7** `/api/chat` — Sonnet default, Opus-Toggle, cached System-Prompt mit Skills, Workflow-Snapshot pro Turn als initial user message
+- **9.8** Apply-Suggestion-Buttons — Claude kann `<suggestion target="..." field="...">value</suggestion>` emittieren, UI rendert Mini-Card mit "Apply to <node label>"-Button, patcht einzelne Felder (Conservative A)
+
+## Shipped in 10 (Polish)
+- **10.1** Glass-Deckkraft 55 % → 82 % (Text in Nodes lesbar). Zusätzliche `glass-soft`-Utility als Reserve.
+- **10.2** ImageGen-Output-Override — im Inspector eigenes Bild hochladen, das ersetzt `outputImage`. Downstream-Nodes übernehmen via bestehender Pipeline automatisch. Auch "Skip generation" (Bild hochladen ohne je zu generieren).
 
 ## Offen (Post-MVP, nicht blockend)
-- `docs/screenshot.png` befüllen
-- Custom-Edge mit Flow-Particles (default animated-Dashes genügen funktional)
-- Provider-Swap-ENV (Kie.ai)
-- Opus-4.7-Text-Fallback (OpenAI)
-- Edge-Level-Roles (aktuell Node-Level, einfacher und ausreichend)
+- Custom-Edge mit Flow-Particles (default animated-Dashes funktional ausreichend)
+- Provider-Swap-ENV (Kie.ai) für Gemini
+- Streaming chat responses (Sonnet/Opus stream-mode, v2)
+- Chat-Historie pro Workflow persistieren (aktuell session-only)
+- Aggressive-Apply-Mode (strukturelle Workflow-Änderungen durch Chat)
 
-## Entscheidungen Phase 8
-- **Dashboard als Modal**, nicht als Route — kein Routing-Refactor nötig, Single-Page bleibt.
-- **Auto-Save über Signatur-Vergleich** (name + node-count + edge-count + JSON-stringified nodes/edges). Kein Overkill-Diffing, aber verhindert leere Save-Loops.
-- **Role auf ImageRef-Node**, nicht auf Edge — passt zum mentalen Modell ("dieses Bild ist meine Style-Referenz"), und erspart Edge-Selection-Handling im Inspector.
-- **`.nowheel`** auf Inspector-Body + Dashboard-Liste — Scroll funktioniert inside, blockt Canvas-Zoom.
+## Entscheidungen Phase 9+10
+- **Skills als cached System-Blocks** (nicht als separate User-Turn-Content): ermöglicht 0.1× Input-Kosten auf Re-Generates, ein Block pro Skill für granulare Cache-Hits
+- **Hard-Limit 3 Skills** — Anthropic erlaubt 4 Cache-Breakpoints; einer geht an den base Generator-Prompt, drei an Skills. Limit klar kommuniziert.
+- **"Pin" = always-on**, normaler Toggle = session-enabled. Pin-Icon visuell auf Chip + im Library-Modal.
+- **Chat nutzt Sonnet default**, Opus-Toggle verfügbar aber nicht default (Kosten-Disziplin §3.2).
+- **`<suggestion>`-XML-Format** statt strukturiertem Tool-Call — einfacher, klappt stabil, UI-seitig regex-parsebar.
+- **Conservative-Apply only** in v1 — nur einzelne Felder (prompt/model/temperature/etc.), keine Struktur-Änderungen. Aggressiver Mode (Node hinzufügen/Edges umbauen) wäre v2.
+- **Workflow-Snapshot** in jedem Chat-Turn neu schicken — Changes auf Canvas wirken sich sofort auf Chat-Antworten aus. Snapshot ist klein (~200-500 Tokens), Prompts auf 600 char getrimmt, keine base64 Bilder.
+- **Glass-Opacity 82 %** statt 55 % — echter Trade-off zwischen Glass-Feeling und Lesbarkeit; 82 % ist die empirische Lesbarkeitsgrenze auf unserem Canvas-Hintergrund, noch mit sichtbarem Backdrop-Blur.
+- **Output-Override schreibt direkt in `outputImage`** — kein neuer Code-Pfad, das gesamte bestehende Downstream-System (imageGen → downstream imageGen / output) zieht's ohne Änderung.
 
-## Commits in Phase 8
+## Commits Phase 9+10
 ```
-8.1 Fix node drag-stick
-8.2 Mode clarity
-8.3 Inspector panel
-8.4 Toolbox (drag to create)
-8.5 Persistence + Dashboard
-8.6 Reference roles on ImageRef
+58652ee 10 Polish: glass opacity + ImageGen output override
+(9.6-8) Chat panel with workflow-aware advisor + Apply buttons
+19e84b7 9.5 Skill chips above the prompt box
+(9.4)   Author-with-Claude skill wizard
+666c6ec 9.3 Generator: append enabled skills as cached system blocks
+(9.2)   Skills library modal
+9ff6682 9.1 Skills storage: Dexie v2 schema + CRUD
 ```
 
 ## Resume
-`claude` → `/model sonnet` → `PROGRESS.md` → falls Post-MVP-Arbeit gewünscht. MVP + Usability-Pass beide shipbar.
+`claude` → `/model sonnet` → `PROGRESS.md` → falls Post-MVP-Arbeit gewünscht.

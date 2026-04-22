@@ -13,12 +13,6 @@ interface GeminiExecuteReq {
   apiKey: string;
 }
 
-const RESOLUTION_SIZE: Record<ImageResolution, string> = {
-  "1K": "1024x1024",
-  "2K": "2048x2048",
-  "4K": "4096x4096",
-};
-
 export async function POST(req: NextRequest) {
   let body: GeminiExecuteReq;
   try {
@@ -34,20 +28,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "empty prompt" }, { status: 400 });
 
   const ai = new GoogleGenAI({ apiKey });
-  const promptWithHints = `${body.prompt}\n\nAspect ratio: ${body.aspectRatio}. Target size: ${RESOLUTION_SIZE[body.resolution]}.`;
 
   const parts: Array<{ text: string } | { inlineData: { data: string; mimeType: string } }> = [
-    { text: promptWithHints },
+    { text: body.prompt },
   ];
   for (const ref of body.refImages ?? []) {
     const parsed = parseDataUrl(ref);
     if (parsed) parts.push({ inlineData: { data: parsed.data, mimeType: parsed.mime } });
   }
 
+  const imageConfig: Record<string, string> = { aspectRatio: body.aspectRatio };
+  if (body.model === "gemini-3-pro-image-preview") {
+    imageConfig.imageSize = body.resolution;
+  }
+
+  const config: Record<string, unknown> = {
+    responseModalities: ["IMAGE"],
+    imageConfig,
+  };
+
   try {
     const res = await ai.models.generateContent({
       model: body.model,
       contents: [{ role: "user", parts }],
+      config,
     });
 
     const candidate = res.candidates?.[0];

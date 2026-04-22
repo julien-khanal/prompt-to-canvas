@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, Play, Settings } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { SettingsModal } from "@/components/settings/SettingsModal";
+import { Inspector } from "@/components/inspector/Inspector";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { runWorkflow } from "@/lib/executor/runWorkflow";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ export function CanvasShell() {
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <Canvas />
+      <Inspector />
       <TopBar onOpenSettings={() => setSettingsOpen(true)} />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>

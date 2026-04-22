@@ -27,6 +27,7 @@ interface CanvasState {
   setEdgesAnimated: (edgeIds: string[], animated: boolean) => void;
   resetRunStatuses: () => void;
   setRunning: (v: boolean) => void;
+  removeNode: (id: string) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -84,4 +85,10 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       edges: s.edges.map((e) => ({ ...e, animated: false })),
     })),
   setRunning: (v) => set({ isRunning: v }),
+  removeNode: (id) =>
+    set((s) => ({
+      nodes: s.nodes.filter((n) => n.id !== id),
+      edges: s.edges.filter((e) => e.source !== id && e.target !== id),
+      graphVersion: s.graphVersion + 1,
+    })),
 }));

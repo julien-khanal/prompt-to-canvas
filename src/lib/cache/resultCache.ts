@@ -37,6 +37,17 @@ export async function putCached(hash: string, result: NodeResult): Promise<void>
   });
 }
 
+export async function clearCacheMatching(prefix: string): Promise<number> {
+  const all = await db().resultCache.toArray();
+  const toRemove = all.filter((r) => r.hash.startsWith(prefix));
+  await db().resultCache.bulkDelete(toRemove.map((r) => r.hash));
+  return toRemove.length;
+}
+
+export async function clearAllCache(): Promise<void> {
+  await db().resultCache.clear();
+}
+
 function estimateBase64Bytes(dataUrl: string): number {
   const commaIdx = dataUrl.indexOf(",");
   const b64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : dataUrl;

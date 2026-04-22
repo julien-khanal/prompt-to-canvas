@@ -258,11 +258,11 @@ Useful before calling `run_workflow_with_inputs`.
 
 ## run_workflow_with_inputs
 
-Runs a saved workflow as a parameterized function. Substitutes the
-provided values into `{{placeholder}}` slots, then runs the whole
-graph and returns the consolidated outputs. Use for repeated runs of
-the same workflow with different inputs (recommended over `generate`
-+ `patch_node` chains).
+Runs a saved workflow template with concrete parameter values. Each
+call **clones the template into a new workflow**, fills the
+`{{placeholder}}` slots with the provided values, runs the graph,
+and leaves the cloned run on the user's canvas as a separate
+workflow they can keep iterating on.
 
 ```json
 {
@@ -274,7 +274,12 @@ the same workflow with different inputs (recommended over `generate`
 }
 ```
 
-`result`: `{ workflowId, ok, failed, skipped, outputs: [{nodeId, label, text, images}] }`.
+`workflowId` here is the **template** id (the one with `{{}}`
+placeholders). The system creates a new workflow named like
+`<template name> · Telekom · spring` and switches the canvas to it.
+The original template is never modified.
+
+`result`: `{ templateWorkflowId, runWorkflowId, runWorkflowName, ok, failed, skipped, outputs: [{nodeId, label, text, images}] }`.
 
 This same command is what the auto-generated MCP servers call under
 the hood — if the user has exported a workflow as an MCP tool, you

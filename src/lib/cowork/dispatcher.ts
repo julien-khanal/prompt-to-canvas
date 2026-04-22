@@ -247,45 +247,24 @@ async function onRunWithInputs(p: Record<string, unknown>): Promise<DispatchOutc
   const inputs = (p.inputs ?? {}) as Record<string, string>;
   if (!id) return { ok: false, error: "workflowId required" };
 
-  const wf = await loadWorkflow(id);
-  if (!wf) return { ok: false, error: "workflow not found" };
+  const template = await loadWorkflow(id);
+  if (!template) return { ok: false, error: "workflow template not found" };
 
+  const substituted = applyParameters(template.nodes, inputs);
+  const inputSummary = Object.values(inputs)
+    .map((v) => String(v).trim())
+    .filter(Boolean)
+    .join(" · ");
+  const cloneName = inputSummary
+    ? `${template.name} · ${inputSummary}`.slice(0, 80)
+    : `${template.name} · run ${new Date().toLocaleString()}`;
+
+  const fresh = await createWorkflow(cloneName);
+  await setLastOpened(fresh.id);
   const store = useCanvasStore.getState();
+  store.setWorkflow(fresh.id, fresh.name, substituted, template.edges, template.activeSkillIds);
 
-  if (store.workflowId !== id) {
-    await setLastOpened(id);
-    store.setWorkflow(id, wf.name, wf.nodes, wf.edges, wf.activeSkillIds);
-  }
-
-  const before = useCanvasStore.getState();
-  const originalNodes = before.nodes.map((n) => ({ ...n, data: { ...n.data } }));
-  const substituted = applyParameters(originalNodes, inputs);
-  store.setNodes(substituted);
-
-  let outcome;
-  try {
-    outcome = await runWorkflow();
-  } finally {
-    const live = useCanvasStore.getState().nodes;
-    const restored = live.map((n) => {
-      const orig = originalNodes.find((o) => o.id === n.id);
-      if (!orig) return n;
-      const liveData = n.data as Record<string, unknown>;
-      const origData = orig.data as Record<string, unknown>;
-      const merged: Record<string, unknown> = { ...liveData };
-      if (n.data.kind === "prompt" || n.data.kind === "imageGen") {
-        merged.prompt = origData.prompt;
-      }
-      if (n.data.kind === "prompt") {
-        merged.systemPrompt = origData.systemPrompt;
-      }
-      if (n.data.kind === "array") {
-        merged.items = origData.items;
-      }
-      return { ...n, data: merged };
-    });
-    useCanvasStore.getState().setNodes(restored as typeof live);
-  }
+  const outcome = await runWorkflow();
 
   const finalNodes = useCanvasStore.getState().nodes;
   const outputNodes = finalNodes.filter((n) => n.data.kind === "output");
@@ -302,7 +281,9 @@ async function onRunWithInputs(p: Record<string, unknown>): Promise<DispatchOutc
   return {
     ok: outcome.ok,
     result: {
-      workflowId: id,
+      templateWorkflowId: id,
+      runWorkflowId: fresh.id,
+      runWorkflowName: fresh.name,
       ok: outcome.ok,
       failed: outcome.failed,
       skipped: outcome.skipped,

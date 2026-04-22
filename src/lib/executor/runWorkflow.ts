@@ -4,10 +4,6 @@ import { useCanvasStore } from "@/lib/canvas/store";
 import { executeNode } from "./executeNode";
 import type { CanvasEdge, CanvasNode } from "@/lib/canvas/types";
 
-export interface GraphRunOutcome extends RunOutcome {
-  finalNodes: CanvasNode[];
-}
-
 export interface RunOutcome {
   ok: boolean;
   skipped: string[];
@@ -55,26 +51,6 @@ export function abortWorkflowRun(): void {
   c?.abort();
 }
 
-export async function runWorkflowOnGraph(
-  nodes: CanvasNode[],
-  edges: CanvasEdge[]
-): Promise<GraphRunOutcome> {
-  const store = useCanvasStore.getState();
-  const prevNodes = store.nodes;
-  const prevEdges = store.edges;
-  const prevId = store.workflowId;
-  const prevName = store.workflowName;
-  const prevSkills = store.activeSkillIds;
-
-  store.setWorkflow("__transient__", "transient", nodes, edges, prevSkills);
-  try {
-    const outcome = await runWorkflow();
-    const finalNodes = useCanvasStore.getState().nodes;
-    return { ...outcome, finalNodes };
-  } finally {
-    store.setWorkflow(prevId, prevName, prevNodes, prevEdges, prevSkills);
-  }
-}
 
 type ExecResult = "done" | "failed" | "skipped";
 

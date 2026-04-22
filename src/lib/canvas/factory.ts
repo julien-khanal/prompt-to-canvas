@@ -63,5 +63,17 @@ export function createNode(kind: Kind, position: { x: number; y: number }): Canv
           status: "idle",
         },
       };
+    case "compare":
+      return {
+        id: newId("c"),
+        type: "compare",
+        position,
+        data: {
+          kind: "compare",
+          label: "Compare",
+          status: "idle",
+          splitPercent: 50,
+        },
+      };
   }
 }

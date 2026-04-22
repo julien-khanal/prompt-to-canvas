@@ -59,6 +59,12 @@ function nodeSummary(n: CanvasNode): Record<string, unknown> {
         hasText: !!n.data.text,
         imageCount: n.data.images?.length ?? 0,
       };
+    case "compare":
+      return {
+        splitPercent: n.data.splitPercent ?? 50,
+        hasLeft: !!n.data.leftImage,
+        hasRight: !!n.data.rightImage,
+      };
   }
 }
 

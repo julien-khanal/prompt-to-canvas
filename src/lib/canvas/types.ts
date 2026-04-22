@@ -67,11 +67,19 @@ export interface OutputNodeData extends BaseNodeData {
   images?: string[];
 }
 
+export interface CompareNodeData extends BaseNodeData {
+  kind: "compare";
+  leftImage?: string;
+  rightImage?: string;
+  splitPercent?: number;
+}
+
 export type CanvasNodeData =
   | PromptNodeData
   | ImageGenNodeData
   | ImageRefNodeData
-  | OutputNodeData;
+  | OutputNodeData
+  | CompareNodeData;
 
 export type CanvasNode = Node<CanvasNodeData>;
 export type CanvasEdge = Edge;

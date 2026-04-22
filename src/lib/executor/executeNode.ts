@@ -56,6 +56,9 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
       return { ok: true };
     case "output":
       return propagateToOutput(node.id, inputs);
+    case "compare":
+      store.setNodeStatus(node.id, "done");
+      return { ok: true };
   }
 }
 

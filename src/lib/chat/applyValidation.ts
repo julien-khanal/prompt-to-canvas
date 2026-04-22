@@ -27,6 +27,7 @@ const APPLYABLE_FIELDS: Record<Kind, Set<string>> = {
   imageGen: new Set(["label", "model", "prompt", "aspectRatio", "resolution"]),
   imageRef: new Set(["label", "role", "url"]),
   output: new Set(["label"]),
+  compare: new Set(["label"]),
 };
 
 export interface ApplyValidationOk {

@@ -93,6 +93,7 @@ function Header({
     imageGen: "Image · Gemini",
     imageRef: "Reference image",
     output: "Consolidated result",
+    compare: "Slider compare",
   };
   const patch = useCanvasStore((s) => s.patchNodeData);
   const pushHistory = useCanvasStore((s) => s.pushHistory);
@@ -186,7 +187,39 @@ function Body({
       return <ImageRefBody data={node.data} onPatch={onPatch} />;
     case "output":
       return <OutputBody data={node.data} />;
+    case "compare":
+      return <CompareBody data={node.data} onPatch={onPatch} />;
   }
+}
+
+function CompareBody({
+  data,
+  onPatch,
+}: {
+  data: import("@/lib/canvas/types").CompareNodeData;
+  onPatch: (patch: Partial<import("@/lib/canvas/types").CompareNodeData>) => void;
+}) {
+  return (
+    <div className="space-y-4 pt-4">
+      <LabeledField label="Label">
+        <TextInput value={data.label} onChange={(label) => onPatch({ label })} />
+      </LabeledField>
+      <LabeledField label="Split position" hint={`${Math.round(data.splitPercent ?? 50)}%`}>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={data.splitPercent ?? 50}
+          onChange={(e) => onPatch({ splitPercent: parseInt(e.target.value, 10) })}
+          className="nodrag w-full accent-[var(--color-g-blue)]"
+        />
+      </LabeledField>
+      <p className="text-[11.5px] text-[var(--color-text-faint)] leading-relaxed">
+        Wire two image sources into the left handles. Drag the slider on the canvas to compare. The compare node has no execution — it&apos;s purely a viewer.
+      </p>
+    </div>
+  );
 }
 
 function PromptBody({

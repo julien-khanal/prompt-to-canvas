@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Copy, FolderOpen, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Copy, FolderOpen, Pencil, Plug, Plus, Sparkles, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +22,7 @@ import {
   type WorkflowSummary,
 } from "@/lib/db/workflows";
 import { useCanvasStore } from "@/lib/canvas/store";
+import { McpExportDialog } from "./McpExportDialog";
 
 export function DashboardModal({
   open,
@@ -33,6 +34,7 @@ export function DashboardModal({
   const [items, setItems] = useState<WorkflowSummary[]>([]);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [mcpExportId, setMcpExportId] = useState<string | null>(null);
   const currentId = useCanvasStore((s) => s.workflowId);
   const setWorkflow = useCanvasStore((s) => s.setWorkflow);
 
@@ -157,6 +159,9 @@ export function DashboardModal({
                     )}
                   </div>
                   <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <IconBtn label="Export as MCP tool" onClick={() => setMcpExportId(it.id)}>
+                      <Plug className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    </IconBtn>
                     <IconBtn label="Rename" onClick={() => onStartRename(it)}>
                       <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
                     </IconBtn>
@@ -186,6 +191,11 @@ export function DashboardModal({
           </Button>
         </div>
       </DialogContent>
+      <McpExportDialog
+        open={!!mcpExportId}
+        onOpenChange={(v) => !v && setMcpExportId(null)}
+        workflowId={mcpExportId}
+      />
     </Dialog>
   );
 }

@@ -91,6 +91,26 @@ src/
 - Nano Banana Pro requires a Google AI Studio billing plan (free tier has zero quota for `gemini-3-pro-image-preview`). Switch the node model to Nano Banana (`gemini-2.5-flash-image`) to stay on the free tier.
 - `temperature` controls on Prompt nodes are ignored when the model is `claude-opus-4-7`.
 
+## Control from Claude Cowork (optional)
+
+The canvas exposes a small REST bridge so the Mac Cowork assistant can read your workflow and operate it for you ("modify Variation B and re-run", "drop this image as a brand reference", "build me a new workflow with the Telekom skill active"). Browser stays the source of truth, all execution uses the keys already in IndexedDB.
+
+```bash
+# 1. Make port 3000 reachable from Cowork's sandbox VM
+brew install cloudflared
+cloudflared tunnel --url http://localhost:3000   # prints a https://*.trycloudflare.com URL
+
+# 2. Generate a shared secret
+openssl rand -hex 32
+
+# 3. Paste it as COWORK_API_SECRET in .env.local, restart pnpm dev
+# 4. Paste the same value into Settings modal -> "Cowork bridge secret"
+# 5. Drag cowork-skill/SKILL.md into your Claude Mac app's Cowork skills
+# 6. Tell Cowork the tunnel URL + secret once
+```
+
+Image uploads from Cowork go via multipart so the binary never enters the LLM context. See `cowork-skill/README.md` for the full setup walk-through.
+
 ## Deploy
 
 Vercel-ready. `pnpm build` produces a clean Next.js build; the three API routes run on Node runtime. Keys are never sent to or stored on your deployment — they live in the user's browser IndexedDB.

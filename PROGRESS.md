@@ -1,42 +1,59 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 12 (Power-User Controls)
+Phase: 13 (Cowork Bridge)
 Status: done
-Letzter Commit: 12.4 Array + Variant fan-out
+Letzter Commit: 13.6 README
 
-## Shipped in 12
-- **12.1** Bypass / Mute pro Node — `disabled?: "bypass" | "mute"`. Bypass = Node skipped, Upstream wird durchgereicht. Mute = Node + downstream Branch tot. Toposort kennt Mute-Closure. Inspector-Toolbar (Bypass/Mute/Delete) + Keyboard-Shortcuts ⌘B / ⌘M (auch für Multi-Select). Visuelles Stripe-Pattern + Badge.
-- **12.2** Compare-Node — neuer 5. Node-Typ `compare`. Zwei Image-Input-Handles (left/right). 16:10 Slider-Viewer, drag/click setzt Split-Position. Touch + Mouse. Auto-Sync von Upstream-Bildern via useEffect. Pure UI, keine Execution.
-- **12.4** Array-Node + Variant-Fan-Out — neuer 6. Node-Typ `array`. Editierbare Item-Liste. Wenn an ImageGen verdrahtet, läuft ImageGen einmal pro Item ("Variant focus: ..."), Live-Progress-Anzeige, Cache pro Variant, Grid-Display in Output. Downstream-Konsumenten (Compare, Output) sehen alle Variants. Abort wird respektiert.
+## Shipped in 13
+- **13.1+13.2** Server-Bridge: in-memory state (HMR-safe via globalThis Symbol), Snapshot-Endpoint (push+get), Command-Queue (enqueue/pending/get/result), Auth-Middleware mit `X-Canvas-Secret`-Header gegen `COWORK_API_SECRET`-env. TTL-Cleanup lazy alle 5 min.
+- **13.4** Multipart-Upload: `POST /api/external/refs/upload` (image/* only, 12 MB max), `GET /api/external/refs/:id` streamt Bytes. 1 h TTL. Binär bleibt komplett aus dem LLM-Kontext.
+- **13.3** Browser-Sync-Hook: pusht Snapshot debounced 500 ms, pollt Commands alle 2 s, dispatched zu 11 Command-Handlern (generate / patch_node / run_node / run_workflow / abort_run / create_workflow / open_workflow / list_workflows / create_skill / toggle_skill / set_ref_image). Settings-Modal kriegt "Cowork bridge secret"-Feld (localStorage).
+- **13.5** `cowork-skill/SKILL.md` + `cowork-skill/README.md` — fertige drag-and-drop Skill-Datei mit komplettem Protokoll, Datenmodell, allen Command-Schemas, Patterns, Common-Mistakes.
+- **13.6** README.md kriegt "Control from Claude Cowork" Setup-Section.
 
-## Selbst-getestet
-- `pnpm build` grün nach jedem Sub-Step (3 Commits)
-- Dev-Server :3000 health: `GET / -> 200 (275 ms)`
-- API-Error-Pfade unverändert: `/api/chat` ohne Key → `Anthropic key missing`
-- Build erkennt alle 6 Node-Typen, neue Ressourcen (compare, array) korrekt im Bundle
+## End-to-end live verifiziert (11 Bridge-Tests)
+- 401 ohne/mit falschem Secret ✓
+- 503 wenn Server-Env fehlt ✓
+- POST/GET snapshot ✓ (age in ms zurück)
+- POST command → queued ✓
+- GET pending mit claim → Status auf running ✓
+- POST result → status done + result-Payload ✓
+- GET command (terminal) → enthält completedAt ✓
+- Unknown command type rejected mit Liste valider Types ✓
+- Multipart-Upload byte-identisch (test PNG hin und zurück) ✓
+- Mime-Reject (text/plain) ✓
+- Browser-Sync-Hook compiled, läuft hinter Setting "Cowork bridge secret" gated
 
-## User-side Test-Plan
-1. **Bypass:** Ein Node selektieren → ⌘B → Stripe-Overlay erscheint. Run → Node wird übersprungen, Upstream-Output wird als sein Output durchgereicht. ⌘B nochmal → zurück.
-2. **Mute:** Ein Node selektieren → ⌘M → roter Stripe. Run → Node + downstream skipped. ⌘M nochmal → zurück.
-3. **Compare-Node:** Toolbox → Compare A/B aufs Canvas droppen. Zwei ImageGen-Outputs auf die zwei left-Handles wiren. Slider draggen → Bilder werden überlagert.
-4. **Array + Variants:** Toolbox → Variants array droppen. Items editieren ("cinematic", "studio", "flat-lay"). Auf ImageGen-Input wiren. ImageGen Run → 3 Bilder als Grid generiert. Output-Node zeigt alle 3.
-5. **Cache pro Variant:** Variants-Run nochmal → CACHE-Chip erscheint, kein Gemini-Call.
+## Architektur-Disziplin (Lead-Dev-View)
+- **Browser bleibt Source of Truth.** Server hält nur Cache + Queue. Kein State-Sync-Drama, kein Conflict-Resolution.
+- **Auth ein einziger Header**, ein einziges Secret. Kein OAuth, kein JWT, kein Session-State.
+- **In-memory** absichtlich gewählt: User-Setup ist Personal-Mac, Server-Restart bei `pnpm dev` kein Problem. Keine fremden Dependencies (Redis, etc.).
+- **Multipart out-of-band** für Bilder — der wichtigste Token-Saver. 100 KB JPG würde sonst 130k Tokens kosten.
+- **HMR-safe** via `globalThis[Symbol.for("...")]`. Sonst hätte jede Code-Änderung den Snapshot + Queue gekillt.
+- **Whitelist-Pattern** für Command-Types und Patch-Felder — gleiche Defense wie Chat-Apply (Phase 11.4). Cowork kann keine Node-Internas korrumpieren.
+- **`useCoworkBridge`** ist no-op wenn kein Secret in localStorage — kein Polling, keine Calls.
 
-## Offen (Tier 3, nicht blockend)
-- "Modify existing workflow" Generator-Modus (12.3 vom User skipped, Phase 12.5 später möglich)
-- Subgraph (collapse-to-node) wie ComfyUI Aug-2025
-- App Mode (Workflow als shareable Form)
-- Real-time canvas (Krea-Style)
-- Region-Prompts mit Maske
-- IndexedDB-Eviction-Policy
+## Offen (nicht-blockend, Polish)
+- Server-Sent-Events statt 2s-Polling (würde Latenz von 2 s auf <50 ms drücken; aktuell aber okay)
+- Retry-Logic im Browser-Hook bei kurzzeitigem Netz-Drop
+- Snapshot-Diffing damit nur Deltas gepusht werden (aktuell pusht der ganze Snapshot bei jeder Änderung)
 
-## Commits Phase 12
+## Commits Phase 13
 ```
-0d0f4c0 12.4 Array node + ImageGen variant fan-out
-9311f8e 12.2 Compare node: drag-slider A/B viewer
-ca1d629 12.1 Bypass / Mute on every node
+13.6 README: Cowork setup section
+13.5 SKILL.md + cowork-skill/README.md
+13.3 Browser sync hook + dispatcher
+13.4 Multipart image upload + serve
+13.1+13.2 Server state + auth + snapshot/command endpoints
 ```
 
 ## Resume
-`claude` → `/model sonnet` → `PROGRESS.md` → falls Tier-3 oder "Modify-Generator" gewünscht.
+Tunnel öffnen + Skill in Cowork installieren → testen.
+```bash
+brew install cloudflared
+cloudflared tunnel --url http://localhost:3000
+# Sekret kopieren aus .env.local (COWORK_API_SECRET)
+# Drag cowork-skill/SKILL.md in Cowork-Skills-Library
+# Cowork: "Was hab ich gerade in Prompt Canvas offen?" → erste Probe
+```

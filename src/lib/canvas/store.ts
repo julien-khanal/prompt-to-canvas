@@ -28,6 +28,7 @@ interface CanvasState {
   resetRunStatuses: () => void;
   setRunning: (v: boolean) => void;
   removeNode: (id: string) => void;
+  addNode: (node: CanvasNode) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -90,5 +91,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       nodes: s.nodes.filter((n) => n.id !== id),
       edges: s.edges.filter((e) => e.source !== id && e.target !== id),
       graphVersion: s.graphVersion + 1,
+    })),
+  addNode: (node) =>
+    set((s) => ({
+      nodes: [...s.nodes, node],
     })),
 }));

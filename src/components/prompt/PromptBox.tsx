@@ -19,11 +19,12 @@ import {
   EMPTY_STRUCTURED,
   type StructuredValues,
 } from "./StructuredForm";
+import { SkillChips } from "./SkillChips";
 import { humanizeError } from "@/lib/errors/humanize";
 
 type Mode = "free" | "structured";
 
-export function PromptBox() {
+export function PromptBox({ onOpenSkills }: { onOpenSkills: () => void }) {
   const [mode, setMode] = useState<Mode>("free");
   const [value, setValue] = useState("");
   const [structured, setStructured] = useState<StructuredValues>(EMPTY_STRUCTURED);
@@ -83,6 +84,10 @@ export function PromptBox() {
       transition={{ duration: 0.5, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
       className="pointer-events-auto fixed bottom-6 left-1/2 z-30 w-[calc(100%-3rem)] max-w-3xl -translate-x-1/2"
     >
+      <div className="mb-2 flex justify-center">
+        <SkillChips onOpenLibrary={onOpenSkills} />
+      </div>
+
       <AnimatePresence>
         {error && (
           <motion.div

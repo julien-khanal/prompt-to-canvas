@@ -8,6 +8,7 @@ import { Inspector } from "@/components/inspector/Inspector";
 import { DashboardModal } from "@/components/dashboard/DashboardModal";
 import { SkillsModal } from "@/components/skills/SkillsModal";
 import { SkillWizard } from "@/components/skills/SkillWizard";
+import { PromptBox } from "@/components/prompt/PromptBox";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
 import { runWorkflow } from "@/lib/executor/runWorkflow";
@@ -23,6 +24,7 @@ export function CanvasShell() {
     <div className="relative h-screen w-screen overflow-hidden">
       <Canvas />
       <Inspector />
+      <PromptBox onOpenSkills={() => setSkillsOpen(true)} />
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenDashboard={() => setDashboardOpen(true)}

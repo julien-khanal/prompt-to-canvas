@@ -31,6 +31,7 @@ export interface PromptNodeData extends BaseNodeData {
   systemPrompt?: string;
   temperature: number;
   output?: string;
+  cacheBust?: number;
 }
 
 export interface ImageGenNodeData extends BaseNodeData {
@@ -43,6 +44,7 @@ export interface ImageGenNodeData extends BaseNodeData {
   outputImages?: string[];
   outputOverride?: boolean;
   variantProgress?: { done: number; total: number };
+  cacheBust?: number;
 }
 
 export type RefRole =

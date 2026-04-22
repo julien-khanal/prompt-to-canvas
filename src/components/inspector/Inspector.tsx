@@ -540,10 +540,15 @@ function Footer({ node }: { node: CanvasNode }) {
   const patch = useCanvasStore((s) => s.patchNodeData);
   const runnable = node.data.kind === "prompt" || node.data.kind === "imageGen";
   const resetCache = () => {
-    patch(node.id, { cacheHit: false });
+    const bump = (node.data as { cacheBust?: number }).cacheBust ?? 0;
+    patch(node.id, { cacheHit: false, cacheBust: bump + 1 });
     if (node.data.kind === "prompt") patch(node.id, { output: undefined });
     if (node.data.kind === "imageGen")
-      patch(node.id, { outputImage: undefined, outputOverride: false });
+      patch(node.id, {
+        outputImage: undefined,
+        outputImages: undefined,
+        outputOverride: false,
+      });
   };
   return (
     <div className="flex items-center gap-2 border-t border-white/5 px-5 py-3">

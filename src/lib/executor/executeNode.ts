@@ -177,6 +177,7 @@ async function runPrompt(
     systemPrompt: data.systemPrompt ?? null,
     temperature: data.temperature,
     inputs,
+    cacheBust: data.cacheBust ?? 0,
   };
   const hash = await hashFor(params);
   const cached = await getCached(hash);
@@ -273,6 +274,7 @@ async function runImageGenVariants(
       refRoles: inputs.refs.map((r) => r.role ?? "").sort(),
       variantIndex: i,
       variantTotal: items.length,
+      cacheBust: data.cacheBust ?? 0,
     };
     const hash = await hashFor(params);
     const cached = await getCached(hash);
@@ -371,6 +373,7 @@ async function runImageGen(
     resolution: data.resolution,
     refImageHashes: refImages.slice().sort(),
     refRoles: refs.map((r) => r.role ?? "").sort(),
+    cacheBust: data.cacheBust ?? 0,
   };
   const hash = await hashFor(params);
   const cached = await getCached(hash);

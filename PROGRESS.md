@@ -1,52 +1,59 @@
 # Progress
 
 ## Aktueller Stand
-Phase: 9 (Skills + Chat) + 10 (Polish)
+Phase: 11 (Safety & Robustness)
 Status: done
-Letzter Commit: 10 Polish
+Letzter Commit: 11.8 + 11.9
 
-## Shipped in 9 (Skills + Chat)
-- **9.1** Dexie v2 `skills` table + CRUD, MAX_ENABLED_SKILLS=3
-- **9.2** Skills-Library-Modal (List, Edit, Toggle, Pin-als-always-on, Delete, Token-Schätzung)
-- **9.3** Workflow-Generator: enabled Skills als zusätzliche cached System-Blocks. Letzter Skill-Block trägt JSON-Reinforcement.
-- **9.4** Author-with-Claude Wizard (`/api/skills/draft`, Sonnet, strikter YAML+Markdown-Output, Draft → User reviews → Save)
-- **9.5** Skill-Chips im PromptBox — Pin-Icon für always-on, on-the-fly toggle, blockiert über Limit.
-- **9.6** RightPanel mit Tabs (Chat ⇄ Inspector), auto-switch zu Inspector bei Node-Selection
-- **9.7** `/api/chat` — Sonnet default, Opus-Toggle, cached System-Prompt mit Skills, Workflow-Snapshot pro Turn als initial user message
-- **9.8** Apply-Suggestion-Buttons — Claude kann `<suggestion target="..." field="...">value</suggestion>` emittieren, UI rendert Mini-Card mit "Apply to <node label>"-Button, patcht einzelne Felder (Conservative A)
+## Shipped in 11
+- **11.1** Generate-Confirm-Dialog — bei Submit auf vollem Workflow: 3-Wege-Dialog (Open in new workflow / Replace / Cancel). "Open in new" auto-named aus Prompt. Fixt den ursprünglichen Datenverlust-Bug.
+- **11.2** Undo-Stack — letzte 12 Snapshots, Cmd+Z global (außer in Inputs), TopBar-Undo-Button. `replaceGraph` und `removeNode` pushen automatisch eine History.
+- **11.3** Orphan-Edge-Cleanup — `onNodesDelete` von React Flow ruft `removeOrphanEdgesFor`, Backspace + Delete beide aktiv, History wird gepusht.
+- **11.4** Chat-Apply-Validation — `validateApply()` whitelistet patchbare Felder pro Node-Kind, prüft Enums (model/aspect/resolution/role) und Range (temperature 0–1). Bad Apply zeigt per-card-Error, kein silent corruption.
+- **11.5** ImageGen-Output-Override-Flag — `outputOverride: boolean`. Executor short-circuit'tet wenn Flag gesetzt, kein API-Call. "Reset cache" und Clear-X unsetzen den Flag.
+- **11.6** Output-Auto-Refresh — nach jedem erfolgreichen Prompt/ImageGen/ImageRef-Pass `refreshDownstreamOutputs()` walked downstream, ruft `propagateToOutput` für jeden erreichbaren Output-Node. Per-Node-Run aktualisiert Final automatisch.
+- **11.7** Skills pro Workflow — `WorkflowRecord.activeSkillIds` persistiert. Switch zu anderem Workflow → Skills-Auswahl wechselt. Pinned/alwaysOn bleibt global.
+- **11.8** Chat-History-Cap (16 Messages) — älteste Pair (User+Assistant) wird gedroppt sobald Limit überschritten. Token-Cost bleibt bounded.
+- **11.9** Run-Abort — AbortController in `runWorkflow`, Signal an alle fetches in `executeNode`. Stop-Button (rot) ersetzt Run während `isRunning`. AbortError → Status zurück auf idle, kein "error" markiert.
 
-## Shipped in 10 (Polish)
-- **10.1** Glass-Deckkraft 55 % → 82 % (Text in Nodes lesbar). Zusätzliche `glass-soft`-Utility als Reserve.
-- **10.2** ImageGen-Output-Override — im Inspector eigenes Bild hochladen, das ersetzt `outputImage`. Downstream-Nodes übernehmen via bestehender Pipeline automatisch. Auch "Skip generation" (Bild hochladen ohne je zu generieren).
+## Selbst-getestet
+- `pnpm build` grün nach jedem Sub-Step (alle 8 Commits)
+- API-Error-Paths via `curl`:
+  - `POST /api/chat` ohne Key → `{"error":"Anthropic key missing"}` ✅
+  - `POST /api/generate-workflow` ohne Key → korrekter 400-Error ✅
+  - `POST /api/chat` mit leerer messages → `{"error":"no messages"}` ✅
+- HMR auf laufendem Dev-Server picked up alle Änderungen, mehrfach `GET / 200` bestätigt
 
-## Offen (Post-MVP, nicht blockend)
-- Custom-Edge mit Flow-Particles (default animated-Dashes funktional ausreichend)
-- Provider-Swap-ENV (Kie.ai) für Gemini
-- Streaming chat responses (Sonnet/Opus stream-mode, v2)
-- Chat-Historie pro Workflow persistieren (aktuell session-only)
-- Aggressive-Apply-Mode (strukturelle Workflow-Änderungen durch Chat)
+## User-side Test-Plan (was ich nicht von Server-Seite verifizieren kann)
+1. **Bug fix**: Workflow generieren, Settings öffnen, Bilder hochladen → erneut Prompt absetzen → Dialog "Open in new" wählen → originaler Workflow muss intakt bleiben (Dashboard öffnen → beide sichtbar)
+2. **Undo**: Node löschen → ⌘Z → Node + Edges zurück
+3. **Keyboard delete**: Node selektieren, Backspace → Edges verschwinden auch
+4. **Chat-Apply**: Chat fragen "Welcher Model wäre besser für Variation A?" → Suggestion-Card mit Apply-Button → Klick → Modell ändert sich am Node
+5. **Chat-Apply-Block**: Chat manuell "fake" suggestion mit field="kind" senden lassen → Error "cannot be applied"
+6. **Output-Override**: ImageGen-Node Inspector → eigenes Bild hochladen → Run klicken → Cache-Chip erscheint, Gemini wird NICHT angerufen
+7. **Output-Auto-Refresh**: Workflow mit Concept→ImageGen→Output, Run, dann Concept-Prompt ändern, Run am Concept allein → Output sollte den neuen Concept-Text consolidaten
+8. **Skills pro Workflow**: 2 Workflows. In A skill X aktivieren, auf B switchen → X aus, Y aktivieren, zurück auf A → X wieder an
+9. **Chat-Cap**: 20+ Chat-Turns → älteste verschwinden, kein Crash
+10. **Run-Abort**: Workflow mit 3+ ImageGens starten, sofort Stop klicken → Run bricht sauber ab, Nodes status idle
 
-## Entscheidungen Phase 9+10
-- **Skills als cached System-Blocks** (nicht als separate User-Turn-Content): ermöglicht 0.1× Input-Kosten auf Re-Generates, ein Block pro Skill für granulare Cache-Hits
-- **Hard-Limit 3 Skills** — Anthropic erlaubt 4 Cache-Breakpoints; einer geht an den base Generator-Prompt, drei an Skills. Limit klar kommuniziert.
-- **"Pin" = always-on**, normaler Toggle = session-enabled. Pin-Icon visuell auf Chip + im Library-Modal.
-- **Chat nutzt Sonnet default**, Opus-Toggle verfügbar aber nicht default (Kosten-Disziplin §3.2).
-- **`<suggestion>`-XML-Format** statt strukturiertem Tool-Call — einfacher, klappt stabil, UI-seitig regex-parsebar.
-- **Conservative-Apply only** in v1 — nur einzelne Felder (prompt/model/temperature/etc.), keine Struktur-Änderungen. Aggressiver Mode (Node hinzufügen/Edges umbauen) wäre v2.
-- **Workflow-Snapshot** in jedem Chat-Turn neu schicken — Changes auf Canvas wirken sich sofort auf Chat-Antworten aus. Snapshot ist klein (~200-500 Tokens), Prompts auf 600 char getrimmt, keine base64 Bilder.
-- **Glass-Opacity 82 %** statt 55 % — echter Trade-off zwischen Glass-Feeling und Lesbarkeit; 82 % ist die empirische Lesbarkeitsgrenze auf unserem Canvas-Hintergrund, noch mit sichtbarem Backdrop-Blur.
-- **Output-Override schreibt direkt in `outputImage`** — kein neuer Code-Pfad, das gesamte bestehende Downstream-System (imageGen → downstream imageGen / output) zieht's ohne Änderung.
+## Offen (Tier 3, Post-MVP)
+- IndexedDB-Quota-Eviction für Result-Cache
+- Multi-Tab-Race-Conditions
+- Chat-Compaction via Sonnet (statt Drop) bei sehr langen Sessions
+- Edge-Selection / Edge-Inspector
+- Generator-Timeout (kein Hänger bei langsamer API)
+- Toolbox auf Touch-Devices (HTML5-Drag schwach)
+- Result-Cache-Eviction-Policy (LRU + Bytes-Cap)
 
-## Commits Phase 9+10
+## Commits Phase 11
 ```
-58652ee 10 Polish: glass opacity + ImageGen output override
-(9.6-8) Chat panel with workflow-aware advisor + Apply buttons
-19e84b7 9.5 Skill chips above the prompt box
-(9.4)   Author-with-Claude skill wizard
-666c6ec 9.3 Generator: append enabled skills as cached system blocks
-(9.2)   Skills library modal
-9ff6682 9.1 Skills storage: Dexie v2 schema + CRUD
+7998cdb 11.8 + 11.9 Chat history cap + Run abort
+298938d 11.7 Skills active per workflow (not globally)
+5e10ca1 11.5 + 11.6 ImageGen output override flag + downstream auto-refresh
+99ad981 11.3 + 11.4 Orphan-edge cleanup + Chat-Apply validation
+265cd8e 11.1 Generate-confirm dialog: stop silent workflow destruction
+28adf8c 11.2 Undo stack + Cmd+Z + TopBar undo button
 ```
 
 ## Resume
-`claude` → `/model sonnet` → `PROGRESS.md` → falls Post-MVP-Arbeit gewünscht.
+`claude` → `/model sonnet` → `PROGRESS.md` → falls Tier-3-Robustness gewünscht.

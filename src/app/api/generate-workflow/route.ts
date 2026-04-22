@@ -3,12 +3,15 @@ import Anthropic from "@anthropic-ai/sdk";
 import { WORKFLOW_SYSTEM_PROMPT, WORKFLOW_GENERATOR_VERSION } from "@/lib/workflow/systemPrompt";
 import { extractJsonObject } from "@/lib/workflow/extractJson";
 import { parseWorkflow } from "@/lib/workflow/schema";
+import { buildSkillSystemBlocks } from "@/lib/workflow/skillBlocks";
+import type { Skill } from "@/lib/db/skills";
 
 export const runtime = "nodejs";
 
 interface GenerateReq {
   prompt: string;
   anthropicKey: string;
+  skills?: Skill[];
 }
 
 export async function POST(req: NextRequest) {
@@ -32,6 +35,7 @@ export async function POST(req: NextRequest) {
   const client = new Anthropic({ apiKey });
 
   try {
+    const skillBlocks = buildSkillSystemBlocks(body.skills ?? []);
     const res = await client.messages.create({
       model: "claude-opus-4-7",
       max_tokens: 2048,
@@ -41,6 +45,7 @@ export async function POST(req: NextRequest) {
           text: WORKFLOW_SYSTEM_PROMPT,
           cache_control: { type: "ephemeral" },
         },
+        ...skillBlocks,
       ],
       messages: [{ role: "user", content: prompt }],
     });

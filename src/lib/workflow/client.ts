@@ -1,6 +1,7 @@
 "use client";
 
 import { getKey } from "@/lib/crypto/keyring";
+import { listEnabledSkills } from "@/lib/db/skills";
 import { parseWorkflow, type Workflow } from "./schema";
 
 export interface GenerateOk {
@@ -19,11 +20,13 @@ export async function generateWorkflowFromPrompt(prompt: string): Promise<Genera
   if (!anthropicKey)
     return { ok: false, error: "Add your Anthropic API key in Settings." };
 
+  const skills = await listEnabledSkills();
+
   try {
     const res = await fetch("/api/generate-workflow", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt, anthropicKey }),
+      body: JSON.stringify({ prompt, anthropicKey, skills }),
     });
     const json = await res.json();
     if (!res.ok) return { ok: false, error: json.error ?? `http ${res.status}` };

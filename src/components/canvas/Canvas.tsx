@@ -74,12 +74,20 @@ function CanvasInner() {
         fitViewOptions={{ padding: 0.25 }}
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{
-          style: { stroke: "url(#edge-gradient)", strokeWidth: 1.5 },
+          style: { stroke: "url(#edge-gradient)", strokeWidth: 2 },
         }}
       >
         <svg width="0" height="0" className="absolute">
           <defs>
-            <linearGradient id="edge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <linearGradient
+              id="edge-gradient"
+              x1="0"
+              y1="0"
+              x2="2000"
+              y2="800"
+              gradientUnits="userSpaceOnUse"
+              spreadMethod="reflect"
+            >
               <stop offset="0%" stopColor="#4285F4" />
               <stop offset="55%" stopColor="#9B72CB" />
               <stop offset="100%" stopColor="#D96570" />

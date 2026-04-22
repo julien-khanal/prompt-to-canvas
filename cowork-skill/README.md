@@ -1,16 +1,19 @@
-# Prompt Canvas — Cowork Skill
+# Prompt Canvas — Cowork Skills
 
-This folder contains a Claude Cowork skill that lets Cowork (the desktop
-assistant in the Claude Mac app) read and operate your Prompt Canvas
-instance over HTTP.
+This folder contains **two** Cowork skills. Install both for full coverage.
+
+| File | What it does |
+|---|---|
+| `SKILL.md` | **Control** — Cowork reads + operates the canvas via HTTP (snapshot, run, patch nodes, upload reference images, manage skills). Use whenever you want Cowork to do something on the canvas. |
+| `SKILL-ops.md` | **Operations knowledge** — daily startup, MCP-tool registration in Claude Desktop, refreshing stale tunnel URLs, troubleshooting matrix. Use whenever you ask "wie war das nochmal mit…" about your local setup. |
 
 ## Install
 
 1. Open the Claude Mac app, go to Cowork, then Skills.
-2. Drag the `SKILL.md` file from this folder into the Skills library, or
-   paste its contents into "+ New skill".
-3. The skill is now available. Cowork will load it automatically when you
-   mention your canvas / workflow / Prompt Canvas.
+2. Drag **both** `SKILL.md` and `SKILL-ops.md` into the Skills library
+   (or paste each contents into "+ New skill", one at a time).
+3. Cowork will load whichever fits the moment based on each skill's
+   description trigger.
 
 ## Setup before first use
 

@@ -87,5 +87,21 @@ export function createNode(kind: Kind, position: { x: number; y: number }): Canv
           items: ["cinematic, golden hour", "studio, neutral background", "overhead flat-lay"],
         },
       };
+    case "critic":
+      return {
+        id: newId("k"),
+        type: "critic",
+        position,
+        data: {
+          kind: "critic",
+          label: "Judge",
+          status: "idle",
+          model: "claude-sonnet-4-6",
+          criteria:
+            "Evaluate how well the artifact matches the brand/voice/style we are aiming for. Be specific and actionable.",
+          threshold: 8,
+          maxIterations: 3,
+        },
+      };
   }
 }

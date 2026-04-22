@@ -4,6 +4,7 @@ import { ImageRefNode } from "./ImageRefNode";
 import { OutputNode } from "./OutputNode";
 import { CompareNode } from "./CompareNode";
 import { ArrayNode } from "./ArrayNode";
+import { CriticNode } from "./CriticNode";
 
 export const nodeTypes = {
   prompt: PromptNode,
@@ -12,4 +13,5 @@ export const nodeTypes = {
   output: OutputNode,
   compare: CompareNode,
   array: ArrayNode,
+  critic: CriticNode,
 };

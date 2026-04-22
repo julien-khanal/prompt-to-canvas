@@ -83,13 +83,26 @@ export interface ArrayNodeData extends BaseNodeData {
   items: string[];
 }
 
+export interface CriticNodeData extends BaseNodeData {
+  kind: "critic";
+  model: ClaudeModel;
+  criteria: string;
+  threshold: number;
+  maxIterations: number;
+  lastScore?: number;
+  lastFeedback?: string;
+  lastSuggestion?: string;
+  iterations?: number;
+}
+
 export type CanvasNodeData =
   | PromptNodeData
   | ImageGenNodeData
   | ImageRefNodeData
   | OutputNodeData
   | CompareNodeData
-  | ArrayNodeData;
+  | ArrayNodeData
+  | CriticNodeData;
 
 export type CanvasNode = Node<CanvasNodeData>;
 export type CanvasEdge = Edge;

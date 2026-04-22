@@ -95,6 +95,7 @@ function Header({
     output: "Consolidated result",
     compare: "Slider compare",
     array: "Variants array",
+    critic: "Critic · scores + retunes",
   };
   const patch = useCanvasStore((s) => s.patchNodeData);
   const pushHistory = useCanvasStore((s) => s.pushHistory);
@@ -192,7 +193,97 @@ function Body({
       return <CompareBody data={node.data} onPatch={onPatch} />;
     case "array":
       return <ArrayBody data={node.data} onPatch={onPatch} />;
+    case "critic":
+      return <CriticBody data={node.data} onPatch={onPatch} />;
   }
+}
+
+function CriticBody({
+  data,
+  onPatch,
+}: {
+  data: import("@/lib/canvas/types").CriticNodeData;
+  onPatch: (patch: Partial<import("@/lib/canvas/types").CriticNodeData>) => void;
+}) {
+  return (
+    <div className="space-y-4 pt-4">
+      <LabeledField label="Label">
+        <TextInput value={data.label} onChange={(label) => onPatch({ label })} />
+      </LabeledField>
+      <LabeledField label="Judge model">
+        <NativeSelect
+          density="sm"
+          value={data.model}
+          onValueChange={(model) => onPatch({ model })}
+          options={CLAUDE_MODELS}
+        />
+      </LabeledField>
+      <LabeledField label="Criteria" hint="What makes a good output?">
+        <Textarea
+          value={data.criteria}
+          onChange={(criteria) => onPatch({ criteria })}
+          rows={5}
+        />
+      </LabeledField>
+      <LabeledField label="Threshold" hint={`≥ ${data.threshold}/10 = passing`}>
+        <input
+          type="range"
+          min="1"
+          max="10"
+          step="1"
+          value={data.threshold}
+          onChange={(e) => onPatch({ threshold: parseInt(e.target.value, 10) })}
+          className="nodrag w-full accent-[var(--color-g-blue)]"
+        />
+      </LabeledField>
+      <LabeledField label="Max iterations" hint="1-5">
+        <input
+          type="range"
+          min="1"
+          max="5"
+          step="1"
+          value={data.maxIterations}
+          onChange={(e) => onPatch({ maxIterations: parseInt(e.target.value, 10) })}
+          className="nodrag w-full accent-[var(--color-g-blue)]"
+        />
+        <div className="text-[11px] text-[var(--color-text-faint)]">{data.maxIterations}</div>
+      </LabeledField>
+      {typeof data.lastScore === "number" && (
+        <LabeledField label="Last result">
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-3 space-y-2">
+            <div className="flex items-baseline justify-between">
+              <span className="font-mono text-[14px] text-[var(--color-text)]">
+                {data.lastScore.toFixed(1)} / 10
+              </span>
+              <span className="text-[10.5px] uppercase tracking-wider text-[var(--color-text-faint)]">
+                iteration {data.iterations ?? 0}
+              </span>
+            </div>
+            {data.lastFeedback && (
+              <div className="text-[12px] leading-snug text-[var(--color-text-dim)]">
+                {data.lastFeedback}
+              </div>
+            )}
+            {data.lastSuggestion && (
+              <details className="text-[11.5px] text-[var(--color-text-faint)]">
+                <summary className="cursor-pointer hover:text-[var(--color-text-dim)]">
+                  Suggested prompt
+                </summary>
+                <div className="mt-1.5 rounded-lg bg-black/30 p-2 font-mono text-[11px] text-[var(--color-text-dim)] whitespace-pre-wrap">
+                  {data.lastSuggestion}
+                </div>
+              </details>
+            )}
+          </div>
+        </LabeledField>
+      )}
+      <p className="text-[11px] leading-relaxed text-[var(--color-text-faint)]">
+        Wire one upstream Prompt or Image node into this Critic. On Run, it scores the
+        upstream output against your criteria. If below threshold, it rewrites the upstream
+        prompt and retries — up to <em>Max iterations</em> times.
+      </p>
+    </div>
+  );
 }
 
 function ArrayBody({

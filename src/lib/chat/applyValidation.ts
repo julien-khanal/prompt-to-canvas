@@ -29,6 +29,7 @@ const APPLYABLE_FIELDS: Record<Kind, Set<string>> = {
   output: new Set(["label"]),
   compare: new Set(["label"]),
   array: new Set(["label"]),
+  critic: new Set(["label", "criteria", "threshold", "maxIterations", "model"]),
 };
 
 export interface ApplyValidationOk {

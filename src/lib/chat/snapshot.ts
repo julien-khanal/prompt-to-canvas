@@ -71,6 +71,15 @@ function nodeSummary(n: CanvasNode): Record<string, unknown> {
         items: n.data.items,
         itemCount: n.data.items.length,
       };
+    case "critic":
+      return {
+        model: n.data.model,
+        criteria: truncate(n.data.criteria, 400),
+        threshold: n.data.threshold,
+        maxIterations: n.data.maxIterations,
+        lastScore: n.data.lastScore,
+        iterations: n.data.iterations,
+      };
   }
 }
 

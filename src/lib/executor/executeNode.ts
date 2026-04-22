@@ -5,6 +5,7 @@ import { getCached, hashFor, putCached, type NodeResult } from "@/lib/cache/resu
 import { useCanvasStore } from "@/lib/canvas/store";
 import type {
   CanvasNode,
+  CriticNodeData,
   ImageGenNodeData,
   ImageRefNodeData,
   PromptNodeData,
@@ -57,6 +58,8 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
       useCanvasStore.getState().setNodeStatus(node.id, "done");
       refreshDownstreamOutputs(node.id);
       return { ok: true };
+    case "critic":
+      return await runCritic(node, node.data);
     case "imageRef":
       refreshDownstreamOutputs(node.id);
       return { ok: true };
@@ -66,6 +69,129 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
       store.setNodeStatus(node.id, "done");
       return { ok: true };
   }
+}
+
+async function runCritic(
+  node: CanvasNode,
+  data: CriticNodeData
+): Promise<ExecuteOutcome> {
+  const store = useCanvasStore.getState();
+  const incoming = store.edges.filter((e) => e.target === node.id);
+  if (!incoming.length) {
+    store.setNodeStatus(node.id, "error", "No incoming edge — connect a Prompt or Image node");
+    return { ok: false, error: "no upstream" };
+  }
+  const sourceId = incoming[0].source;
+  const apiKey = await getKey("anthropic");
+  if (!apiKey) {
+    store.setNodeStatus(node.id, "error", "Anthropic key missing");
+    return { ok: false, error: "Anthropic key missing" };
+  }
+
+  const maxIter = Math.max(1, Math.min(5, data.maxIterations));
+  let iter = 0;
+
+  while (iter < maxIter) {
+    iter += 1;
+    store.patchNodeData<CriticNodeData>(node.id, {
+      status: "running",
+      error: undefined,
+      iterations: iter,
+    });
+
+    const source = useCanvasStore.getState().nodes.find((n) => n.id === sourceId);
+    if (!source) {
+      store.setNodeStatus(node.id, "error", "upstream node disappeared");
+      return { ok: false, error: "upstream missing" };
+    }
+
+    let sourceText: string | undefined;
+    let sourceImage: string | undefined;
+    let sourcePromptText = "";
+    if (source.data.kind === "prompt") {
+      sourceText = source.data.output;
+      sourcePromptText = source.data.prompt;
+    } else if (source.data.kind === "imageGen") {
+      sourceImage = source.data.outputImage;
+      sourcePromptText = source.data.prompt;
+    } else {
+      store.setNodeStatus(
+        node.id,
+        "error",
+        "Critic only supports Prompt or Image upstream"
+      );
+      return { ok: false, error: "unsupported source kind" };
+    }
+    if (!sourceText && !sourceImage) {
+      store.setNodeStatus(node.id, "error", "Upstream has no output yet — run it first");
+      return { ok: false, error: "no upstream output" };
+    }
+
+    let judgeJson: { score: number | null; feedback?: string; suggestedPrompt?: string };
+    try {
+      const res = await fetch("/api/claude/judge", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          model: data.model,
+          criteria: data.criteria,
+          sourcePrompt: sourcePromptText,
+          sourceText,
+          sourceImageDataUrl: sourceImage,
+          apiKey,
+        }),
+        signal: currentSignal(),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? `http ${res.status}`);
+      judgeJson = json;
+    } catch (err) {
+      if (isAbort(err)) {
+        store.setNodeStatus(node.id, "idle", undefined);
+        return { ok: false, error: "aborted" };
+      }
+      const msg = err instanceof Error ? err.message : "unknown error";
+      store.setNodeStatus(node.id, "error", msg);
+      return { ok: false, error: msg };
+    }
+
+    const score = typeof judgeJson.score === "number" ? judgeJson.score : 0;
+    store.patchNodeData<CriticNodeData>(node.id, {
+      lastScore: score,
+      lastFeedback: judgeJson.feedback ?? "",
+      lastSuggestion: judgeJson.suggestedPrompt ?? "",
+      iterations: iter,
+    });
+
+    if (score >= data.threshold) {
+      store.patchNodeData<CriticNodeData>(node.id, { status: "done" });
+      return { ok: true };
+    }
+    if (iter >= maxIter) {
+      store.patchNodeData<CriticNodeData>(node.id, { status: "done" });
+      return { ok: true };
+    }
+    const suggestion = (judgeJson.suggestedPrompt ?? "").trim();
+    if (!suggestion) {
+      store.patchNodeData<CriticNodeData>(node.id, { status: "done" });
+      return { ok: true };
+    }
+
+    const bumpSrc = useCanvasStore.getState().nodes.find((n) => n.id === sourceId);
+    if (bumpSrc) {
+      const bump =
+        ((bumpSrc.data as { cacheBust?: number }).cacheBust ?? 0) + 1;
+      store.patchNodeData(sourceId, { prompt: suggestion, cacheBust: bump });
+    }
+    const srcOutcome = await executeNode(sourceId);
+    if (!srcOutcome.ok) {
+      store.setNodeStatus(node.id, "error", `upstream re-run failed: ${srcOutcome.error ?? ""}`);
+      return { ok: false, error: srcOutcome.error };
+    }
+  }
+
+  store.patchNodeData<CriticNodeData>(node.id, { status: "done" });
+  return { ok: true };
 }
 
 async function passThrough(

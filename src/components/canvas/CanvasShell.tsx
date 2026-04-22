@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { FolderOpen, Loader2, Play, Settings } from "lucide-react";
+import { BookMarked, FolderOpen, Loader2, Play, Settings } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { SettingsModal } from "@/components/settings/SettingsModal";
 import { Inspector } from "@/components/inspector/Inspector";
 import { DashboardModal } from "@/components/dashboard/DashboardModal";
+import { SkillsModal } from "@/components/skills/SkillsModal";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { useWorkflowPersistence } from "@/lib/hooks/useWorkflowPersistence";
 import { runWorkflow } from "@/lib/executor/runWorkflow";
@@ -14,6 +15,7 @@ import { cn } from "@/lib/utils";
 export function CanvasShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
   useWorkflowPersistence();
   return (
     <div className="relative h-screen w-screen overflow-hidden">
@@ -22,9 +24,18 @@ export function CanvasShell() {
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenDashboard={() => setDashboardOpen(true)}
+        onOpenSkills={() => setSkillsOpen(true)}
       />
       <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
       <DashboardModal open={dashboardOpen} onOpenChange={setDashboardOpen} />
+      <SkillsModal
+        open={skillsOpen}
+        onOpenChange={setSkillsOpen}
+        onOpenWizard={() => {
+          setSkillsOpen(false);
+          /* wizard wired in 9.4 */
+        }}
+      />
     </div>
   );
 }
@@ -32,9 +43,11 @@ export function CanvasShell() {
 function TopBar({
   onOpenSettings,
   onOpenDashboard,
+  onOpenSkills,
 }: {
   onOpenSettings: () => void;
   onOpenDashboard: () => void;
+  onOpenSkills: () => void;
 }) {
   const isRunning = useCanvasStore((s) => s.isRunning);
   const hasNodes = useCanvasStore((s) => s.nodes.length > 0);
@@ -69,6 +82,13 @@ function TopBar({
           className="glass inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-dim)] transition-colors hover:text-[var(--color-text)]"
         >
           <FolderOpen className="h-4 w-4" strokeWidth={1.7} />
+        </button>
+        <button
+          onClick={onOpenSkills}
+          aria-label="Skills"
+          className="glass inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-dim)] transition-colors hover:text-[var(--color-text)]"
+        >
+          <BookMarked className="h-4 w-4" strokeWidth={1.7} />
         </button>
         <button
           onClick={() => runWorkflow()}

@@ -22,6 +22,7 @@ export function useWorkflowPersistence() {
   const edges = useCanvasStore((s) => s.edges);
 
   const activeSkillIds = useCanvasStore((s) => s.activeSkillIds);
+  const isRunning = useCanvasStore((s) => s.isRunning);
   const lastSavedSig = useRef<string>("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -47,6 +48,7 @@ export function useWorkflowPersistence() {
   useEffect(() => {
     if (!hydrated || !workflowId) return;
     if (workflowId === "__transient__") return;
+    if (isRunning) return;
     const sig = `${workflowName}::${nodes.length}::${edges.length}::${activeSkillIds.join(",")}::${JSON.stringify(nodes)}::${JSON.stringify(edges)}`;
     if (sig === lastSavedSig.current) return;
 
@@ -59,5 +61,5 @@ export function useWorkflowPersistence() {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [hydrated, workflowId, workflowName, nodes, edges, activeSkillIds]);
+  }, [hydrated, workflowId, workflowName, nodes, edges, activeSkillIds, isRunning]);
 }

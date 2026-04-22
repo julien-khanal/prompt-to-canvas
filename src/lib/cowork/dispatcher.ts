@@ -21,7 +21,6 @@ import {
 import { fetchRefAsDataUrl, type BridgeCommand } from "./clientApi";
 import { validateApply } from "@/lib/chat/applyValidation";
 import { applyParameters, detectParameters } from "@/lib/workflow/parameters";
-import { runWorkflowOnGraph } from "@/lib/executor/runWorkflow";
 import type {
   CanvasEdge,
   CanvasNode,
@@ -251,10 +250,27 @@ async function onRunWithInputs(p: Record<string, unknown>): Promise<DispatchOutc
   const wf = await loadWorkflow(id);
   if (!wf) return { ok: false, error: "workflow not found" };
 
-  const substituted = applyParameters(wf.nodes, inputs);
-  const out = await runWorkflowOnGraph(substituted, wf.edges);
+  const store = useCanvasStore.getState();
 
-  const outputNodes = out.finalNodes.filter((n) => n.data.kind === "output");
+  if (store.workflowId !== id) {
+    await setLastOpened(id);
+    store.setWorkflow(id, wf.name, wf.nodes, wf.edges, wf.activeSkillIds);
+  }
+
+  const before = useCanvasStore.getState();
+  const originalNodes = before.nodes.map((n) => ({ ...n, data: { ...n.data } }));
+  const substituted = applyParameters(originalNodes, inputs);
+  store.setNodes(substituted);
+
+  let outcome;
+  try {
+    outcome = await runWorkflow();
+  } finally {
+    useCanvasStore.getState().setNodes(originalNodes);
+  }
+
+  const finalNodes = useCanvasStore.getState().nodes;
+  const outputNodes = finalNodes.filter((n) => n.data.kind === "output");
   const summary = outputNodes.map((n) => {
     if (n.data.kind !== "output") return null;
     return {
@@ -266,12 +282,12 @@ async function onRunWithInputs(p: Record<string, unknown>): Promise<DispatchOutc
   });
 
   return {
-    ok: out.ok,
+    ok: outcome.ok,
     result: {
       workflowId: id,
-      ok: out.ok,
-      failed: out.failed,
-      skipped: out.skipped,
+      ok: outcome.ok,
+      failed: outcome.failed,
+      skipped: outcome.skipped,
       outputs: summary.filter(Boolean),
     },
   };

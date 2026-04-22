@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Copy, FolderOpen, Pencil, Plug, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Copy, FolderOpen, Package, Pencil, Plug, Plus, Sparkles, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/db/workflows";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { McpExportDialog } from "./McpExportDialog";
+import { buildDatasetZip } from "@/lib/dataset/exportZip";
 
 export function DashboardModal({
   open,
@@ -84,6 +85,22 @@ export function DashboardModal({
   const onDuplicate = async (id: string) => {
     await duplicateWorkflow(id);
     await refresh();
+  };
+
+  const onExportDataset = async (id: string) => {
+    const wf = await loadWorkflow(id);
+    if (!wf) return;
+    const out = await buildDatasetZip(wf.name, wf.nodes);
+    if (out.imageCount === 0) {
+      alert("No generated images yet — run the workflow first to populate outputs.");
+      return;
+    }
+    const url = URL.createObjectURL(out.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = out.filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const onStartRename = (it: WorkflowSummary) => {
@@ -159,6 +176,9 @@ export function DashboardModal({
                     )}
                   </div>
                   <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <IconBtn label="Export images as ZIP (LoRA-ready)" onClick={() => onExportDataset(it.id)}>
+                      <Package className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    </IconBtn>
                     <IconBtn label="Export as MCP tool" onClick={() => setMcpExportId(it.id)}>
                       <Plug className="h-3.5 w-3.5" strokeWidth={1.8} />
                     </IconBtn>

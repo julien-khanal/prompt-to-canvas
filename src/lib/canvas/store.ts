@@ -16,6 +16,9 @@ interface CanvasState {
   edges: CanvasEdge[];
   isRunning: boolean;
   graphVersion: number;
+  workflowId: string | null;
+  workflowName: string;
+  hydrated: boolean;
   onNodesChange: (changes: NodeChange<CanvasNode>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
@@ -29,6 +32,9 @@ interface CanvasState {
   setRunning: (v: boolean) => void;
   removeNode: (id: string) => void;
   addNode: (node: CanvasNode) => void;
+  setWorkflow: (id: string | null, name: string, nodes: CanvasNode[], edges: CanvasEdge[]) => void;
+  setWorkflowName: (name: string) => void;
+  setHydrated: (v: boolean) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -36,6 +42,9 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   edges: [],
   isRunning: false,
   graphVersion: 0,
+  workflowId: null,
+  workflowName: "Untitled",
+  hydrated: false,
   onNodesChange: (changes) =>
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
   onEdgesChange: (changes) =>
@@ -96,4 +105,14 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     set((s) => ({
       nodes: [...s.nodes, node],
     })),
+  setWorkflow: (id, name, nodes, edges) =>
+    set((s) => ({
+      workflowId: id,
+      workflowName: name,
+      nodes,
+      edges,
+      graphVersion: s.graphVersion + 1,
+    })),
+  setWorkflowName: (name) => set({ workflowName: name }),
+  setHydrated: (v) => set({ hydrated: v }),
 }));

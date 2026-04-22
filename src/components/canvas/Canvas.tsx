@@ -24,9 +24,10 @@ function CanvasInner() {
   const graphVersion = useCanvasStore((s) => s.graphVersion);
   const { fitView, screenToFlowPosition } = useReactFlow();
 
+  const hydrated = useCanvasStore((s) => s.hydrated);
   useEffect(() => {
-    if (nodes.length === 0) replaceGraph(seedNodes, seedEdges);
-  }, [nodes.length, replaceGraph]);
+    if (hydrated && nodes.length === 0) replaceGraph(seedNodes, seedEdges);
+  }, [hydrated, nodes.length, replaceGraph]);
 
   useEffect(() => {
     if (graphVersion === 0) return;

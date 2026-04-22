@@ -19,7 +19,7 @@ import { createNode } from "@/lib/canvas/factory";
 import type { CanvasNodeData } from "@/lib/canvas/types";
 
 function CanvasInner() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, replaceGraph, addNode } =
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, replaceGraph, addNode, removeOrphanEdgesFor, pushHistory } =
     useCanvasStore();
   const graphVersion = useCanvasStore((s) => s.graphVersion);
   const { fitView, screenToFlowPosition } = useReactFlow();
@@ -62,6 +62,12 @@ function CanvasInner() {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onNodesDelete={(deleted) => {
+          if (!deleted.length) return;
+          pushHistory(`Delete ${deleted.length} node${deleted.length === 1 ? "" : "s"}`);
+          removeOrphanEdgesFor(deleted.map((n) => n.id));
+        }}
+        deleteKeyCode={["Backspace", "Delete"]}
         minZoom={0.1}
         maxZoom={2}
         fitView

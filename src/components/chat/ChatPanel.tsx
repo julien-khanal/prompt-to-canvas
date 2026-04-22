@@ -7,6 +7,7 @@ import { getKey } from "@/lib/crypto/keyring";
 import { listEnabledSkills } from "@/lib/db/skills";
 import { buildSnapshot } from "@/lib/chat/snapshot";
 import { parseChatMessage, type Suggestion } from "@/lib/chat/parseSuggestions";
+import { validateApply } from "@/lib/chat/applyValidation";
 import { humanizeError } from "@/lib/errors/humanize";
 import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -225,23 +226,30 @@ function AssistantContent({ text }: { text: string }) {
 function SuggestionCard({ s }: { s: Suggestion }) {
   const nodes = useCanvasStore((st) => st.nodes);
   const patch = useCanvasStore((st) => st.patchNodeData);
+  const pushHistory = useCanvasStore((st) => st.pushHistory);
   const [applied, setApplied] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
   const node = nodes.find((n) => n.id === s.target);
   const exists = !!node;
 
   const apply = () => {
-    if (!exists) return;
-    const value = coerceValue(s.field, s.value);
-    if (value === undefined) return;
-    patch(s.target, { [s.field]: value, cacheHit: false });
+    if (!node) return;
+    const v = validateApply(node.data.kind, s.field, s.value);
+    if (!v.ok) {
+      setApplyError(v.error);
+      return;
+    }
+    pushHistory(`Apply "${s.field}" via chat`);
+    patch(s.target, { [s.field]: v.value, cacheHit: false });
     setApplied(true);
+    setApplyError(null);
   };
 
   return (
     <div className="rounded-xl border border-[var(--color-g-blue)]/30 bg-[var(--color-g-blue)]/[0.05] p-2.5">
-      <div className="mb-1.5 flex items-center justify-between">
-        <div className="text-[10.5px] uppercase tracking-wider text-[var(--color-text-faint)]">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <div className="min-w-0 truncate text-[10.5px] uppercase tracking-wider text-[var(--color-text-faint)]">
           Suggestion · {s.field} on{" "}
           <span className="text-[var(--color-text-dim)]">
             {node?.data.label ?? s.target}
@@ -251,7 +259,7 @@ function SuggestionCard({ s }: { s: Suggestion }) {
           onClick={apply}
           disabled={!exists || applied}
           className={cn(
-            "rounded-full px-2.5 py-[3px] text-[10.5px] font-medium transition-all",
+            "flex-none rounded-full px-2.5 py-[3px] text-[10.5px] font-medium transition-all",
             applied
               ? "bg-white/[0.06] text-[var(--color-text-faint)]"
               : exists
@@ -265,16 +273,11 @@ function SuggestionCard({ s }: { s: Suggestion }) {
       <div className="whitespace-pre-wrap rounded-lg bg-black/30 p-2 font-mono text-[11px] leading-snug text-[var(--color-text)]">
         {s.value}
       </div>
+      {applyError && (
+        <div className="mt-1.5 text-[10.5px] text-[var(--color-g-red)]">
+          {applyError}
+        </div>
+      )}
     </div>
   );
-}
-
-function coerceValue(field: string, raw: string): unknown {
-  const trimmed = raw.trim();
-  switch (field) {
-    case "temperature":
-      return parseFloat(trimmed);
-    default:
-      return trimmed;
-  }
 }

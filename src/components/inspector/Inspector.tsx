@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Play, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import { useCanvasStore } from "@/lib/canvas/store";
 import { executeNode } from "@/lib/executor/executeNode";
@@ -62,27 +61,22 @@ export function Inspector() {
     [nodes]
   );
 
+  if (!selected) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center text-[12px] text-[var(--color-text-faint)]">
+        Select a node on the canvas to inspect.
+      </div>
+    );
+  }
+
   return (
-    <AnimatePresence>
-      {selected && (
-        <motion.aside
-          key={selected.id}
-          initial={{ x: 24, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: 24, opacity: 0 }}
-          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-          className="pointer-events-auto absolute right-4 top-20 bottom-32 z-20 flex w-[340px] flex-col overflow-hidden rounded-3xl"
-        >
-          <div className="glass flex h-full flex-col overflow-hidden rounded-3xl">
-            <Header node={selected} onDelete={() => removeNode(selected.id)} />
-            <div className="nowheel nodrag flex-1 space-y-4 overflow-y-auto px-5 pb-5">
-              <Body node={selected} onPatch={(p) => patch(selected.id, p)} />
-            </div>
-            <Footer node={selected} />
-          </div>
-        </motion.aside>
-      )}
-    </AnimatePresence>
+    <div className="flex h-full flex-col">
+      <Header node={selected} onDelete={() => removeNode(selected.id)} />
+      <div className="nowheel nodrag flex-1 space-y-4 overflow-y-auto px-5 pb-5">
+        <Body node={selected} onPatch={(p) => patch(selected.id, p)} />
+      </div>
+      <Footer node={selected} />
+    </div>
   );
 }
 

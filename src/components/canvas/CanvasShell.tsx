@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { BookMarked, FolderOpen, Loader2, Play, Settings } from "lucide-react";
+import { BookMarked, FolderOpen, Loader2, MessageSquare, Play, Settings } from "lucide-react";
 import { Canvas } from "./Canvas";
 import { SettingsModal } from "@/components/settings/SettingsModal";
-import { Inspector } from "@/components/inspector/Inspector";
+import { RightPanel } from "@/components/inspector/RightPanel";
 import { DashboardModal } from "@/components/dashboard/DashboardModal";
 import { SkillsModal } from "@/components/skills/SkillsModal";
 import { SkillWizard } from "@/components/skills/SkillWizard";
@@ -23,7 +23,7 @@ export function CanvasShell() {
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <Canvas />
-      <Inspector />
+      <RightPanel />
       <PromptBox onOpenSkills={() => setSkillsOpen(true)} />
       <TopBar
         onOpenSettings={() => setSettingsOpen(true)}
@@ -62,6 +62,8 @@ function TopBar({
   const hasNodes = useCanvasStore((s) => s.nodes.length > 0);
   const name = useCanvasStore((s) => s.workflowName);
   const setName = useCanvasStore((s) => s.setWorkflowName);
+  const setRightPanelTab = useCanvasStore((s) => s.setRightPanelTab);
+  const rightPanelTab = useCanvasStore((s) => s.rightPanelTab);
   return (
     <div className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-6 py-4">
       <div className="pointer-events-auto flex items-center gap-3">
@@ -98,6 +100,20 @@ function TopBar({
           className="glass inline-flex h-8 w-8 items-center justify-center rounded-full text-[var(--color-text-dim)] transition-colors hover:text-[var(--color-text)]"
         >
           <BookMarked className="h-4 w-4" strokeWidth={1.7} />
+        </button>
+        <button
+          onClick={() =>
+            setRightPanelTab(rightPanelTab === "chat" ? null : "chat")
+          }
+          aria-label="Chat with workflow advisor"
+          className={cn(
+            "glass inline-flex h-8 w-8 items-center justify-center rounded-full transition-colors",
+            rightPanelTab === "chat"
+              ? "text-[var(--color-text)] ring-1 ring-[var(--color-g-blue)]/40"
+              : "text-[var(--color-text-dim)] hover:text-[var(--color-text)]"
+          )}
+        >
+          <MessageSquare className="h-4 w-4" strokeWidth={1.7} />
         </button>
         <button
           onClick={() => runWorkflow()}

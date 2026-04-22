@@ -35,6 +35,8 @@ interface CanvasState {
   setWorkflow: (id: string | null, name: string, nodes: CanvasNode[], edges: CanvasEdge[]) => void;
   setWorkflowName: (name: string) => void;
   setHydrated: (v: boolean) => void;
+  rightPanelTab: "inspector" | "chat" | null;
+  setRightPanelTab: (t: "inspector" | "chat" | null) => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -45,6 +47,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   workflowId: null,
   workflowName: "Untitled",
   hydrated: false,
+  rightPanelTab: null,
   onNodesChange: (changes) =>
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) })),
   onEdgesChange: (changes) =>
@@ -115,4 +118,5 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     })),
   setWorkflowName: (name) => set({ workflowName: name }),
   setHydrated: (v) => set({ hydrated: v }),
+  setRightPanelTab: (t) => set({ rightPanelTab: t }),
 }));

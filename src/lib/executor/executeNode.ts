@@ -24,14 +24,43 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
   const inputs = gatherInputs(node, store.nodes, store.edges);
 
   switch (node.data.kind) {
-    case "prompt":
-      return runPrompt(node, node.data, inputs.text);
-    case "imageGen":
-      return runImageGen(node, node.data, inputs.text, inputs.images, inputs.refs);
+    case "prompt": {
+      const outcome = await runPrompt(node, node.data, inputs.text);
+      if (outcome.ok) refreshDownstreamOutputs(node.id);
+      return outcome;
+    }
+    case "imageGen": {
+      const outcome = await runImageGen(node, node.data, inputs.text, inputs.images, inputs.refs);
+      if (outcome.ok) refreshDownstreamOutputs(node.id);
+      return outcome;
+    }
     case "imageRef":
+      refreshDownstreamOutputs(node.id);
       return { ok: true };
     case "output":
       return propagateToOutput(node.id, inputs);
+  }
+}
+
+function refreshDownstreamOutputs(sourceId: string): void {
+  const { nodes, edges } = useCanvasStore.getState();
+  const visited = new Set<string>();
+  const queue: string[] = [sourceId];
+  while (queue.length) {
+    const id = queue.shift()!;
+    if (visited.has(id)) continue;
+    visited.add(id);
+    for (const e of edges) {
+      if (e.source !== id) continue;
+      const target = nodes.find((n) => n.id === e.target);
+      if (!target) continue;
+      if (target.data.kind === "output") {
+        const inputs = gatherInputs(target, nodes, edges);
+        void propagateToOutput(target.id, inputs);
+      } else {
+        queue.push(target.id);
+      }
+    }
   }
 }
 
@@ -142,6 +171,16 @@ async function runImageGen(
   refs: Array<{ url: string; role?: string; label: string }>
 ): Promise<ExecuteOutcome> {
   const store = useCanvasStore.getState();
+
+  if (data.outputOverride && data.outputImage) {
+    store.patchNodeData<ImageGenNodeData>(node.id, {
+      status: "done",
+      cacheHit: true,
+      error: undefined,
+    });
+    return { ok: true, cacheHit: true };
+  }
+
   const roleHint = refs.length
     ? `\n\nReferences provided (in order):\n${refs
         .map(

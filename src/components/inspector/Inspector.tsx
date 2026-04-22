@@ -215,7 +215,12 @@ function ImageGenBody({
       r.onerror = reject;
       r.readAsDataURL(file);
     });
-    onPatch({ outputImage: url, status: "done", cacheHit: false });
+    onPatch({
+      outputImage: url,
+      outputOverride: true,
+      status: "done",
+      cacheHit: true,
+    });
   };
 
   return (
@@ -254,7 +259,13 @@ function ImageGenBody({
       </LabeledField>
       <LabeledField
         label="Output image"
-        hint={data.outputImage ? "override the generated result" : "empty — run or override"}
+        hint={
+          data.outputOverride
+            ? "manual override · runs are skipped"
+            : data.outputImage
+              ? "override the generated result"
+              : "empty — run or override"
+        }
       >
         {data.outputImage ? (
           <div className="space-y-2">
@@ -262,7 +273,7 @@ function ImageGenBody({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={data.outputImage} alt="output" className="h-auto w-full" />
               <button
-                onClick={() => onPatch({ outputImage: undefined, status: "idle" })}
+                onClick={() => onPatch({ outputImage: undefined, outputOverride: false, status: "idle", cacheHit: false })}
                 className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-[var(--color-g-red)]"
                 aria-label="Clear output"
               >
@@ -414,7 +425,8 @@ function Footer({ node }: { node: CanvasNode }) {
   const resetCache = () => {
     patch(node.id, { cacheHit: false });
     if (node.data.kind === "prompt") patch(node.id, { output: undefined });
-    if (node.data.kind === "imageGen") patch(node.id, { outputImage: undefined });
+    if (node.data.kind === "imageGen")
+      patch(node.id, { outputImage: undefined, outputOverride: false });
   };
   return (
     <div className="flex items-center gap-2 border-t border-white/5 px-5 py-3">

@@ -37,6 +37,7 @@ export interface ImageGenNodeData extends BaseNodeData {
   aspectRatio: AspectRatio;
   resolution: ImageResolution;
   outputImage?: string;
+  outputOverride?: boolean;
 }
 
 export type RefRole =

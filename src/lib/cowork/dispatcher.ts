@@ -266,7 +266,25 @@ async function onRunWithInputs(p: Record<string, unknown>): Promise<DispatchOutc
   try {
     outcome = await runWorkflow();
   } finally {
-    useCanvasStore.getState().setNodes(originalNodes);
+    const live = useCanvasStore.getState().nodes;
+    const restored = live.map((n) => {
+      const orig = originalNodes.find((o) => o.id === n.id);
+      if (!orig) return n;
+      const liveData = n.data as Record<string, unknown>;
+      const origData = orig.data as Record<string, unknown>;
+      const merged: Record<string, unknown> = { ...liveData };
+      if (n.data.kind === "prompt" || n.data.kind === "imageGen") {
+        merged.prompt = origData.prompt;
+      }
+      if (n.data.kind === "prompt") {
+        merged.systemPrompt = origData.systemPrompt;
+      }
+      if (n.data.kind === "array") {
+        merged.items = origData.items;
+      }
+      return { ...n, data: merged };
+    });
+    useCanvasStore.getState().setNodes(restored as typeof live);
   }
 
   const finalNodes = useCanvasStore.getState().nodes;

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Gauge, GitCompareArrows, Image as ImageIcon, Images, Flag, List } from "lucide-react";
+import { FileText, Gauge, GitCompareArrows, Image as ImageIcon, Images, Flag, Layers, List } from "lucide-react";
 import type { CanvasNodeData } from "@/lib/canvas/types";
 
 type Kind = CanvasNodeData["kind"];
@@ -11,6 +11,7 @@ const ITEMS: { kind: Kind; label: string; Icon: typeof FileText }[] = [
   { kind: "prompt", label: "Prompt", Icon: FileText },
   { kind: "imageGen", label: "Image", Icon: ImageIcon },
   { kind: "imageRef", label: "Reference", Icon: Images },
+  { kind: "styleAnchor", label: "Style anchor", Icon: Layers },
   { kind: "array", label: "Variants array", Icon: List },
   { kind: "compare", label: "Compare A/B", Icon: GitCompareArrows },
   { kind: "critic", label: "Critic / goal-seek", Icon: Gauge },

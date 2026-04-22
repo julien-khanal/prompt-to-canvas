@@ -103,5 +103,17 @@ export function createNode(kind: Kind, position: { x: number; y: number }): Canv
           maxIterations: 3,
         },
       };
+    case "styleAnchor":
+      return {
+        id: newId("s"),
+        type: "styleAnchor",
+        position,
+        data: {
+          kind: "styleAnchor",
+          label: "Style Anchor",
+          status: "idle",
+          references: [],
+        },
+      };
   }
 }

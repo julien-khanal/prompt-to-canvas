@@ -34,9 +34,12 @@ export interface PromptNodeData extends BaseNodeData {
   cacheBust?: number;
 }
 
+export type FluxModel = "fal-flux-schnell" | "fal-flux-dev" | "fal-flux-pro";
+export type ImageGenModel = GeminiImageModel | FluxModel;
+
 export interface ImageGenNodeData extends BaseNodeData {
   kind: "imageGen";
-  model: GeminiImageModel;
+  model: ImageGenModel;
   prompt: string;
   aspectRatio: AspectRatio;
   resolution: ImageResolution;
@@ -45,6 +48,8 @@ export interface ImageGenNodeData extends BaseNodeData {
   outputOverride?: boolean;
   variantProgress?: { done: number; total: number };
   cacheBust?: number;
+  loraUrl?: string;
+  loraStrength?: number;
 }
 
 export type RefRole =
@@ -95,6 +100,17 @@ export interface CriticNodeData extends BaseNodeData {
   iterations?: number;
 }
 
+export interface StyleAnchorReference {
+  dataUrl: string;
+  label?: string;
+}
+
+export interface StyleAnchorNodeData extends BaseNodeData {
+  kind: "styleAnchor";
+  references: StyleAnchorReference[];
+  distillate?: string;
+}
+
 export type CanvasNodeData =
   | PromptNodeData
   | ImageGenNodeData
@@ -102,7 +118,8 @@ export type CanvasNodeData =
   | OutputNodeData
   | CompareNodeData
   | ArrayNodeData
-  | CriticNodeData;
+  | CriticNodeData
+  | StyleAnchorNodeData;
 
 export type CanvasNode = Node<CanvasNodeData>;
 export type CanvasEdge = Edge;

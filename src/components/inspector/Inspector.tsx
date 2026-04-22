@@ -90,12 +90,13 @@ function Header({
 }) {
   const subtitle: Record<CanvasNode["data"]["kind"], string> = {
     prompt: "Text · Claude",
-    imageGen: "Image · Gemini",
+    imageGen: "Image · Gemini / Flux",
     imageRef: "Reference image",
     output: "Consolidated result",
     compare: "Slider compare",
     array: "Variants array",
     critic: "Critic · scores + retunes",
+    styleAnchor: "Style anchor · brand library",
   };
   const patch = useCanvasStore((s) => s.patchNodeData);
   const pushHistory = useCanvasStore((s) => s.pushHistory);
@@ -195,7 +196,139 @@ function Body({
       return <ArrayBody data={node.data} onPatch={onPatch} />;
     case "critic":
       return <CriticBody data={node.data} onPatch={onPatch} />;
+    case "styleAnchor":
+      return <StyleAnchorBody data={node.data} onPatch={onPatch} />;
   }
+}
+
+function StyleAnchorBody({
+  data,
+  onPatch,
+}: {
+  data: import("@/lib/canvas/types").StyleAnchorNodeData;
+  onPatch: (patch: Partial<import("@/lib/canvas/types").StyleAnchorNodeData>) => void;
+}) {
+  const refs = data.references ?? [];
+
+  const onFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const remaining = 14 - refs.length;
+    if (remaining <= 0) return;
+    const slice = Array.from(files).slice(0, remaining);
+    const results = await Promise.all(
+      slice.map(
+        (f) =>
+          new Promise<{ dataUrl: string; label: string }>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve({ dataUrl: r.result as string, label: f.name });
+            r.onerror = reject;
+            r.readAsDataURL(f);
+          })
+      )
+    );
+    onPatch({ references: [...refs, ...results].slice(0, 14) });
+  };
+
+  const removeAt = (i: number) => {
+    onPatch({ references: refs.filter((_, j) => j !== i) });
+  };
+
+  const onDistill = async () => {
+    if (refs.length === 0) return;
+    onPatch({ status: "running", error: undefined });
+    try {
+      const apiKey =
+        (await (await import("@/lib/crypto/keyring")).getKey("anthropic")) ?? "";
+      const res = await fetch("/api/claude/distill-style", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          apiKey,
+          images: refs.map((r) => r.dataUrl),
+          existingDistillate: data.distillate,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "distill failed");
+      onPatch({ distillate: json.distillate, status: "done" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      onPatch({ status: "error", error: msg });
+    }
+  };
+
+  return (
+    <div className="space-y-4 pt-4">
+      <LabeledField label="Label">
+        <TextInput value={data.label} onChange={(label) => onPatch({ label })} />
+      </LabeledField>
+
+      <LabeledField label={`References (${refs.length}/14)`} hint="3–14 work best">
+        {refs.length > 0 ? (
+          <div className="grid grid-cols-3 gap-1.5">
+            {refs.map((r, i) => (
+              <div key={i} className="relative aspect-square overflow-hidden rounded-lg border border-white/5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={r.dataUrl} alt={r.label ?? `ref-${i}`} className="h-full w-full object-cover" />
+                <button
+                  onClick={() => removeAt(i)}
+                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-[var(--color-g-red)]"
+                  aria-label="Remove"
+                >
+                  <X className="h-2.5 w-2.5" strokeWidth={2} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {refs.length < 14 && (
+          <label className="nodrag mt-1.5 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 py-2.5 text-[12px] text-[var(--color-text-dim)] transition-colors hover:border-white/30 hover:text-[var(--color-text)]">
+            <Upload className="h-3.5 w-3.5" strokeWidth={1.8} />
+            Add images ({14 - refs.length} left)
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => onFiles(e.target.files)}
+              className="hidden"
+            />
+          </label>
+        )}
+      </LabeledField>
+
+      <LabeledField
+        label="Style distillate"
+        hint={data.distillate ? "Used as text guidance alongside refs" : "Optional — Claude can write one"}
+      >
+        <Textarea
+          value={data.distillate ?? ""}
+          onChange={(distillate) => onPatch({ distillate: distillate || undefined })}
+          rows={5}
+        />
+        <button
+          onClick={onDistill}
+          disabled={refs.length === 0 || data.status === "running"}
+          className="nodrag mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-gradient-secondary px-3 py-1.5 text-[11px] font-medium text-white shadow-glow-blue transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {data.status === "running" ? (
+            <>
+              <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2.4} />
+              Distilling…
+            </>
+          ) : (
+            <>
+              <Play className="h-3 w-3 fill-current" strokeWidth={0} />
+              {data.distillate ? "Re-distill with Claude" : "Distill style with Claude"}
+            </>
+          )}
+        </button>
+      </LabeledField>
+
+      <p className="text-[11px] leading-relaxed text-[var(--color-text-faint)]">
+        Wire this node into any ImageGen node&apos;s input. All references are passed as style refs to Gemini, plus the distillate is appended to the prompt as guidance. One node, one wire — replaces 5–14 individual ImageRef connections.
+      </p>
+    </div>
+  );
 }
 
 function CriticBody({

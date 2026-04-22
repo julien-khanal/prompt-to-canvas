@@ -80,6 +80,11 @@ function nodeSummary(n: CanvasNode): Record<string, unknown> {
         lastScore: n.data.lastScore,
         iterations: n.data.iterations,
       };
+    case "styleAnchor":
+      return {
+        referenceCount: n.data.references?.length ?? 0,
+        distillate: n.data.distillate ? truncate(n.data.distillate, 200) : undefined,
+      };
   }
 }
 

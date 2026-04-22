@@ -68,6 +68,10 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
     case "compare":
       store.setNodeStatus(node.id, "done");
       return { ok: true };
+    case "styleAnchor":
+      store.setNodeStatus(node.id, "done");
+      refreshDownstreamOutputs(node.id);
+      return { ok: true };
   }
 }
 
@@ -289,6 +293,16 @@ function gatherInputs(
       if (!url) continue;
       images.push(url);
       refs.push({ url, role: ref.role, label: ref.label });
+    } else if (src.data.kind === "styleAnchor") {
+      for (const r of src.data.references ?? []) {
+        if (!r.dataUrl) continue;
+        if (images.length >= 14) break;
+        images.push(r.dataUrl);
+        refs.push({ url: r.dataUrl, role: "style", label: r.label ?? src.data.label });
+      }
+      if (src.data.distillate) {
+        text.push({ label: `${src.data.label} (style)`, text: src.data.distillate });
+      }
     } else if (src.data.kind === "array") {
       for (const it of src.data.items) {
         const trimmed = it.trim();

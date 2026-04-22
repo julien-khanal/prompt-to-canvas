@@ -5,6 +5,7 @@ import { OutputNode } from "./OutputNode";
 import { CompareNode } from "./CompareNode";
 import { ArrayNode } from "./ArrayNode";
 import { CriticNode } from "./CriticNode";
+import { StyleAnchorNode } from "./StyleAnchorNode";
 
 export const nodeTypes = {
   prompt: PromptNode,
@@ -14,4 +15,5 @@ export const nodeTypes = {
   compare: CompareNode,
   array: ArrayNode,
   critic: CriticNode,
+  styleAnchor: StyleAnchorNode,
 };

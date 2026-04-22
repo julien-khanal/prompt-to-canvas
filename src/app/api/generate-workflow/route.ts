@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const skillBlocks = buildSkillSystemBlocks(body.skills ?? []);
     const res = await client.messages.create({
       model: "claude-opus-4-7",
-      max_tokens: 2048,
+      max_tokens: 6000,
       system: [
         {
           type: "text",
@@ -50,6 +50,16 @@ export async function POST(req: NextRequest) {
       messages: [{ role: "user", content: prompt }],
     });
 
+    if (res.stop_reason === "max_tokens") {
+      return NextResponse.json(
+        {
+          error:
+            "Generator hit the output cap mid-graph. With multiple skills active the JSON can get long. Try a slightly simpler prompt or fewer active skills.",
+        },
+        { status: 502 }
+      );
+    }
+
     const text = res.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
@@ -57,7 +67,19 @@ export async function POST(req: NextRequest) {
     if (!text) throw new Error("empty response from Claude");
 
     const jsonText = extractJsonObject(text);
-    const workflow = parseWorkflow(JSON.parse(jsonText));
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch (parseErr) {
+      const msg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+      return NextResponse.json(
+        {
+          error: `Generator returned malformed JSON (${msg}). The first 500 chars: ${jsonText.slice(0, 500)}`,
+        },
+        { status: 502 }
+      );
+    }
+    const workflow = parseWorkflow(parsed);
 
     return NextResponse.json({
       workflow,

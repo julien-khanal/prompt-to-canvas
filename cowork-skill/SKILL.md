@@ -86,6 +86,8 @@ Returns:
 }
 ```
 
+Node kinds you may see in the snapshot: `prompt`, `imageGen` (Gemini OR Flux models), `imageRef`, `styleAnchor` (5–14 ref bundle), `array` (variants), `critic`, `compare`, `output`. Eight in total.
+
 If `ageMs > 30000`, warn the user the browser may not be open.
 If you get a 404, the browser hasn't pushed yet — say so and stop.
 
@@ -150,11 +152,18 @@ Allowed fields per node kind:
 - `output`: label
 - `compare`: label
 - `array`: label
+- `critic`: label, criteria, threshold, maxIterations, model
+- `styleAnchor`: label, distillate
 
-Enums: `model` must be one of the documented Claude or Gemini IDs (the
-snapshot will show valid current values). `aspectRatio` ∈ {1:1, 16:9, 9:16,
-4:3}. `resolution` ∈ {1K, 2K, 4K}. `role` ∈ {style, subject, palette,
-composition, pose}. `temperature` 0..1 — and ignored on Opus 4.7.
+Enums:
+- Claude `model`: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`
+- Image `model`: `gemini-3-pro-image-preview`, `gemini-2.5-flash-image`, `fal-flux-schnell`, `fal-flux-dev`, `fal-flux-pro`
+- `aspectRatio` ∈ {1:1, 16:9, 9:16, 4:3}
+- `resolution` ∈ {1K, 2K, 4K}
+- `role` ∈ {style, subject, palette, composition, pose}
+- `temperature` 0..1 — ignored on Opus 4.7
+
+When `model` starts with `fal-flux-`, the imageGen node also accepts `loraUrl` (string) and `loraStrength` (number 0–2). Those aren't mutable via patch_node yet — guide the user to set them in the Inspector.
 
 ## run_node
 
@@ -285,6 +294,30 @@ This same command is what the auto-generated MCP servers call under
 the hood — if the user has exported a workflow as an MCP tool, you
 can either invoke that tool directly (preferred when available) or
 call this command yourself for the same effect.
+
+## list_skills
+
+Returns all skills in the user's library with metadata.
+
+```json
+{ "type": "list_skills", "payload": {} }
+```
+
+`result`: `[{ id, name, description, bytes, alwaysOn, activeInCurrentWorkflow, updatedAt }]`.
+
+## delete_skill
+
+Removes a skill from the library. Idempotent — won't error if skill is already gone.
+
+```json
+{ "type": "delete_skill", "payload": { "id": "sk-..." } }
+```
+
+Or by name (case-insensitive):
+
+```json
+{ "type": "delete_skill", "payload": { "name": "old-skill" } }
+```
 
 ## set_ref_image
 

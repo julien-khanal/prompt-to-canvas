@@ -126,7 +126,11 @@ export async function POST(req: NextRequest) {
   try {
     const res = await client.messages.create({
       model: body.model,
-      max_tokens: 600,
+      // German feedback can be ~600 tokens alone; suggestedPrompt up to
+      // 800 chars (~250 tokens). 2000 leaves comfortable headroom and
+      // prevents the truncated-JSON-soft-fail observed on detailed
+      // multi-criterion evaluations.
+      max_tokens: 2000,
       ...(isOpus ? {} : { temperature: 0.2 }),
       system: [
         {

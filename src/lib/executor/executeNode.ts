@@ -86,7 +86,14 @@ async function runCritic(
     store.setNodeStatus(node.id, "error", "No incoming edge — connect a Prompt or Image node");
     return { ok: false, error: "no upstream" };
   }
-  const sourceId = incoming[0].source;
+  // Pick the artifact being evaluated, not a co-input briefing/context.
+  // imageGen wins over prompt; if multiple of same kind exist, take first.
+  const primary = pickCriticPrimaryUpstream(node.id, store.nodes, store.edges);
+  if (!primary) {
+    store.setNodeStatus(node.id, "error", "Critic has no usable upstream");
+    return { ok: false, error: "no usable upstream" };
+  }
+  const sourceId = primary.id;
   const apiKey = await getKey("anthropic");
   if (!apiKey) {
     store.setNodeStatus(node.id, "error", "Anthropic key missing");
@@ -270,6 +277,30 @@ interface GatheredInputs {
   variantItems: string[];
 }
 
+/**
+ * When a critic node is connected to multiple upstreams (typical in
+ * iterative workflows: briefing + image-being-judged), pick the one
+ * that's actually being evaluated. Image gens take precedence over
+ * text prompts; the briefing/context node is a co-input, not the
+ * artifact.
+ */
+function pickCriticPrimaryUpstream(
+  criticId: string,
+  nodes: CanvasNode[],
+  edges: { source: string; target: string }[]
+): CanvasNode | null {
+  const sources = edges
+    .filter((e) => e.target === criticId)
+    .map((e) => nodes.find((n) => n.id === e.source))
+    .filter((n): n is CanvasNode => !!n);
+  return (
+    sources.find((s) => s.data.kind === "imageGen") ??
+    sources.find((s) => s.data.kind === "prompt") ??
+    sources[0] ??
+    null
+  );
+}
+
 function gatherInputs(
   node: CanvasNode,
   nodes: CanvasNode[],
@@ -311,6 +342,23 @@ function gatherInputs(
       for (const it of src.data.items) {
         const trimmed = it.trim();
         if (trimmed) variantItems.push(trimmed);
+      }
+    } else if (src.data.kind === "critic") {
+      // Critics produce no artifact themselves — they side-effect their
+      // upstream. For collection (e.g. by output nodes), transparently
+      // pull the iterated artifact from the critic's primary upstream.
+      // Without this pass-through, dedupCriticOutputEdges leaves only
+      // critic→final edges and the output node sees nothing.
+      const primary = pickCriticPrimaryUpstream(src.id, nodes, edges);
+      if (!primary) continue;
+      if (primary.data.kind === "imageGen") {
+        if (primary.data.outputImages && primary.data.outputImages.length > 0) {
+          for (const u of primary.data.outputImages) images.push(u);
+        } else if (primary.data.outputImage) {
+          images.push(primary.data.outputImage);
+        }
+      } else if (primary.data.kind === "prompt" && primary.data.output) {
+        text.push({ label: primary.data.label, text: primary.data.output });
       }
     }
   }

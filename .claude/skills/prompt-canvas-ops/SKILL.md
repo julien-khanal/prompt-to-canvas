@@ -148,46 +148,64 @@ After editing `cowork-skill/SKILL.md` or `cowork-skill/SKILL-ops.md` in the repo
 
 The script finds every `prompt-canvas-control` and `prompt-canvas-ops` folder under `~/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/` and copies the latest source over. After running, tell the user to start a fresh Cowork chat (active sessions cache the loaded skill body until restart).
 
-## Recipe 5c — manage the dev-server LaunchAgent
+## Recipe 5c — manage the LaunchAgents (dev server + ngrok tunnel)
 
-The user has a macOS LaunchAgent at `~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist` that auto-starts `pnpm dev` on login and restarts on crash. So the dev server should always be up. Common operations:
+The user has **two** macOS LaunchAgents that auto-start at login and restart on crash:
+
+| Label | Plist | What it runs |
+| --- | --- | --- |
+| `de.julienkhanal.prompt-canvas` | `~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist` | `pnpm dev` (Next.js on :3000) |
+| `de.julienkhanal.prompt-canvas-tunnel` | `~/Library/LaunchAgents/de.julienkhanal.prompt-canvas-tunnel.plist` | `ngrok http --url=debating-macarena-down.ngrok-free.dev 3000` |
+
+The ngrok URL is **pinned** to the user's free static dev domain — it never changes between restarts. Cowork-chat URL stays the same forever: `https://debating-macarena-down.ngrok-free.dev`.
 
 ```bash
-# Check status (running PID + last exit code)
+# Check status of both (running PID + last exit code; "-" means not running)
 launchctl list | grep prompt-canvas
 
-# Restart after a code change that the dev server can't HMR (rare — Next handles most)
+# Restart dev server (after a code change Next.js can't HMR — rare)
 launchctl kickstart -k gui/$(id -u)/de.julienkhanal.prompt-canvas
+
+# Restart tunnel (e.g. after authtoken rotation)
+launchctl kickstart -k gui/$(id -u)/de.julienkhanal.prompt-canvas-tunnel
 
 # Stop temporarily (until next login)
 launchctl unload ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist
+launchctl unload ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas-tunnel.plist
 
 # Re-enable
 launchctl load ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist
+launchctl load ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas-tunnel.plist
 
 # Tail logs
 tail -f ~/Library/Logs/prompt-canvas/dev.{out,err}.log
+tail -f ~/Library/Logs/prompt-canvas/tunnel.{out,err}.log
 ```
 
-If the user reports "canvas isn't reachable", health check first (Recipe 6). If port 3000 is empty, kickstart the agent rather than launching `pnpm dev` manually — otherwise you end up with two competing processes.
+If the user reports "canvas isn't reachable", health check first (Recipe 6). If port 3000 is empty, kickstart the dev agent rather than launching `pnpm dev` manually — otherwise two competing processes. If the bridge URL returns 404 / DNS failure but localhost:3000 is fine, kickstart the tunnel agent.
 
 ## Recipe 6 — health check
 
-When user reports "something is broken", run all three checks before guessing:
+When user reports "something is broken", run all four checks before guessing:
 
 ```bash
-# 1. Dev server
-echo -n "dev: "; curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000
-
-# 2. Bridge auth (uses .env.local secret)
 SECRET=$(grep COWORK_API_SECRET ~/projects/prompt-canvas/.env.local | cut -d= -f2)
-echo -n "bridge: "; curl -s -o /dev/null -w "%{http_code}\n" -H "X-Canvas-Secret: $SECRET" http://localhost:3000/api/external/snapshot
+TUNNEL_URL="https://debating-macarena-down.ngrok-free.dev"
 
-# 3. Tunnel
-echo -n "tunnel: "; pgrep -fl "cloudflared tunnel --url http://localhost:3000" || echo "DOWN"
+# 1. Dev server (LaunchAgent: de.julienkhanal.prompt-canvas)
+echo -n "dev:           "; curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000
+
+# 2. Bridge auth, local (browser tab + secret check)
+echo -n "bridge local:  "; curl -s -o /dev/null -w "%{http_code}\n" -H "X-Canvas-Secret: $SECRET" http://localhost:3000/api/external/snapshot
+
+# 3. Tunnel process (LaunchAgent: de.julienkhanal.prompt-canvas-tunnel)
+echo -n "tunnel proc:   "; launchctl list | awk '$3=="de.julienkhanal.prompt-canvas-tunnel"{print "PID "$1}' | grep -q PID && echo OK || echo DOWN
+
+# 4. Bridge auth, public (end-to-end Cowork's-eye view)
+echo -n "bridge public: "; curl -s -o /dev/null -w "%{http_code}\n" -H "X-Canvas-Secret: $SECRET" -H "ngrok-skip-browser-warning: 1" "$TUNNEL_URL/api/external/snapshot"
 ```
 
-`200/200/PID` = healthy. `200/404/PID` = browser tab not open (snapshot unpushed). Anything else = follow troubleshooting matrix below.
+`200 / 200 / OK / 200` = healthy. `200 / 404 / … / 404` = browser tab not open (snapshot unpushed). `200 / 200 / OK / 0` or DNS error on #4 = tunnel agent crashed; kickstart it. `200 / 200 / DOWN / *` = tunnel LaunchAgent unloaded; reload it. Anything else = troubleshooting matrix below.
 
 ---
 

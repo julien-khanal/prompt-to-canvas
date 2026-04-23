@@ -9,12 +9,19 @@ You can read and operate a running Prompt Canvas instance over HTTP.
 
 Two values must be available via env vars or the user's first message:
 
-- `PROMPT_CANVAS_URL` — public base URL (e.g. `https://xyz.trycloudflare.com`).
-  The user runs `cloudflared tunnel --url http://localhost:3000` to get one.
+- `PROMPT_CANVAS_URL` — public base URL (e.g. `https://xyz.ngrok-free.dev` or
+  `https://xyz.trycloudflare.com`). Many users run a **permanent** tunnel as
+  a macOS LaunchAgent (ngrok with a pinned static dev-domain), so the URL
+  never changes between restarts. Ask the user for their URL — don't tell
+  them to spin up a new tunnel unless they say their existing one is dead.
 - `PROMPT_CANVAS_SECRET` — random hex string. Same value the user pasted into
   the canvas Settings modal under "Cowork bridge secret".
 
 If either is missing, ask the user once, then store the answer for this session.
+
+When sending requests through ngrok-based tunnels, also include the header
+`ngrok-skip-browser-warning: 1` to bypass ngrok's HTML interstitial. (No-op
+for non-ngrok hosts, so safe to always send.)
 
 # Authentication
 

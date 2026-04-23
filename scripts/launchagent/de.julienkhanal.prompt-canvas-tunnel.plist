@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  macOS LaunchAgent for the ngrok tunnel that exposes the local dev server
+  at https://debating-macarena-down.ngrok-free.dev (Julien's free static dev
+  domain). Pairs with the prompt-canvas dev-server LaunchAgent so both auto-
+  start at login.
+
+  Install:
+    cp scripts/launchagent/de.julienkhanal.prompt-canvas-tunnel.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas-tunnel.plist
+
+  Stop / disable:
+    launchctl unload ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas-tunnel.plist
+
+  Inspect logs:
+    tail -f ~/Library/Logs/prompt-canvas/tunnel.out.log
+    tail -f ~/Library/Logs/prompt-canvas/tunnel.err.log
+
+  Restart manually:
+    launchctl kickstart -k gui/$(id -u)/de.julienkhanal.prompt-canvas-tunnel
+
+  Note: the static URL is pinned via --url=, so it never changes between
+  restarts. The authtoken lives in ~/Library/Application Support/ngrok/ngrok.yml
+  and is read automatically.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>de.julienkhanal.prompt-canvas-tunnel</string>
+
+  <key>WorkingDirectory</key>
+  <string>/tmp</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/ngrok</string>
+    <string>http</string>
+    <string>--url=debating-macarena-down.ngrok-free.dev</string>
+    <string>3000</string>
+    <string>--log=stdout</string>
+    <string>--log-format=logfmt</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+    <key>Crashed</key>
+    <true/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/julien.khanal/Library/Logs/prompt-canvas/tunnel.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/julien.khanal/Library/Logs/prompt-canvas/tunnel.err.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

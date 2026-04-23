@@ -5,7 +5,15 @@ import type {
   ImageResolution,
 } from "@/lib/canvas/types";
 
-export type WfNodeType = "prompt" | "imageGen" | "imageRef" | "output";
+export type WfNodeType =
+  | "prompt"
+  | "imageGen"
+  | "imageRef"
+  | "output"
+  | "critic"
+  | "array"
+  | "compare"
+  | "styleAnchor";
 
 export interface WfNodePrompt {
   id: string;
@@ -48,7 +56,55 @@ export interface WfNodeOutput {
   config: Record<string, never>;
 }
 
-export type WfNode = WfNodePrompt | WfNodeImageGen | WfNodeImageRef | WfNodeOutput;
+export interface WfNodeCritic {
+  id: string;
+  type: "critic";
+  label: string;
+  config: {
+    model: ClaudeModel;
+    criteria: string;
+    threshold: number; // 1–10
+    maxIterations: number; // 1–5
+  };
+}
+
+export interface WfNodeArray {
+  id: string;
+  type: "array";
+  label: string;
+  config: {
+    items: string[];
+  };
+}
+
+export interface WfNodeCompare {
+  id: string;
+  type: "compare";
+  label: string;
+  config: {
+    splitPercent?: number; // 0–100, default 50
+  };
+}
+
+export interface WfNodeStyleAnchor {
+  id: string;
+  type: "styleAnchor";
+  label: string;
+  config: {
+    distillate?: string; // generator-supplied seed text; user can refine via UI
+    // references[] is filled by user via upload UI; generator never emits image bytes
+  };
+}
+
+export type WfNode =
+  | WfNodePrompt
+  | WfNodeImageGen
+  | WfNodeImageRef
+  | WfNodeOutput
+  | WfNodeCritic
+  | WfNodeArray
+  | WfNodeCompare
+  | WfNodeStyleAnchor;
 
 export interface WfEdge {
   source: string;
@@ -145,6 +201,42 @@ function parseNode(n: unknown, idx: number): WfNode {
     }
     case "output":
       return { id, type: "output", label, config: {} as Record<string, never> };
+    case "critic": {
+      const model = String(cfg.model ?? "claude-sonnet-4-6");
+      if (!CLAUDE_MODELS.has(model)) throw new Error(`node ${id} invalid model "${model}"`);
+      const criteria = String(cfg.criteria ?? "").trim();
+      if (!criteria) throw new Error(`node ${id} empty criteria`);
+      const rawThreshold = typeof cfg.threshold === "number" ? cfg.threshold : 8;
+      const threshold = Math.min(10, Math.max(1, Math.round(rawThreshold)));
+      const rawMax = typeof cfg.maxIterations === "number" ? cfg.maxIterations : 3;
+      const maxIterations = Math.min(5, Math.max(1, Math.round(rawMax)));
+      return {
+        id,
+        type: "critic",
+        label,
+        config: { model: model as ClaudeModel, criteria, threshold, maxIterations },
+      };
+    }
+    case "array": {
+      const rawItems = Array.isArray(cfg.items) ? cfg.items : [];
+      const items = rawItems
+        .map((it) => (typeof it === "string" ? it.trim() : ""))
+        .filter((it) => it.length > 0);
+      if (!items.length) throw new Error(`node ${id} array needs at least one item`);
+      return { id, type: "array", label, config: { items } };
+    }
+    case "compare": {
+      const rawSplit = typeof cfg.splitPercent === "number" ? cfg.splitPercent : 50;
+      const splitPercent = Math.min(100, Math.max(0, Math.round(rawSplit)));
+      return { id, type: "compare", label, config: { splitPercent } };
+    }
+    case "styleAnchor": {
+      const distillate =
+        typeof cfg.distillate === "string" && cfg.distillate.trim().length
+          ? cfg.distillate.trim()
+          : undefined;
+      return { id, type: "styleAnchor", label, config: { distillate } };
+    }
     default:
       throw new Error(`node ${id} unknown type "${type}"`);
   }

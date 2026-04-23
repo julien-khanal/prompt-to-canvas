@@ -1,10 +1,14 @@
 import type {
+  ArrayNodeData,
   CanvasEdge,
   CanvasNode,
+  CompareNodeData,
+  CriticNodeData,
   ImageGenNodeData,
   ImageRefNodeData,
   OutputNodeData,
   PromptNodeData,
+  StyleAnchorNodeData,
 } from "@/lib/canvas/types";
 import type { Workflow } from "./schema";
 import { layoutWorkflow } from "./layout";
@@ -59,6 +63,46 @@ export async function workflowToCanvas(
           status: "idle",
         };
         return { id: n.id, type: "output", position: pos, data };
+      }
+      case "critic": {
+        const data: CriticNodeData = {
+          kind: "critic",
+          label: n.label,
+          status: "idle",
+          model: n.config.model,
+          criteria: n.config.criteria,
+          threshold: n.config.threshold,
+          maxIterations: n.config.maxIterations,
+        };
+        return { id: n.id, type: "critic", position: pos, data };
+      }
+      case "array": {
+        const data: ArrayNodeData = {
+          kind: "array",
+          label: n.label,
+          status: "idle",
+          items: n.config.items,
+        };
+        return { id: n.id, type: "array", position: pos, data };
+      }
+      case "compare": {
+        const data: CompareNodeData = {
+          kind: "compare",
+          label: n.label,
+          status: "idle",
+          splitPercent: n.config.splitPercent ?? 50,
+        };
+        return { id: n.id, type: "compare", position: pos, data };
+      }
+      case "styleAnchor": {
+        const data: StyleAnchorNodeData = {
+          kind: "styleAnchor",
+          label: n.label,
+          status: "idle",
+          references: [],
+          distillate: n.config.distillate,
+        };
+        return { id: n.id, type: "styleAnchor", position: pos, data };
       }
     }
   });

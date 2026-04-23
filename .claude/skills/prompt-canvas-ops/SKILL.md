@@ -138,7 +138,17 @@ servers["prompt_canvas__brand-hero-test"] = {
 
 After write: `python3 -m json.tool <path> > /dev/null` to validate.
 
-## Recipe 5 — health check
+## Recipe 5 — "sync cowork skills" / "update cowork skills"
+
+After editing `cowork-skill/SKILL.md` or `cowork-skill/SKILL-ops.md` in the repo, push the new content into Cowork's installed skill folders. Idempotent. Cleans up the common drag-and-drop mistake where `SKILL-ops.md` ends up inside `prompt-canvas-control/`.
+
+```bash
+~/projects/prompt-canvas/scripts/sync-cowork-skills.sh
+```
+
+The script finds every `prompt-canvas-control` and `prompt-canvas-ops` folder under `~/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/` and copies the latest source over. After running, tell the user to start a fresh Cowork chat (active sessions cache the loaded skill body until restart).
+
+## Recipe 6 — health check
 
 When user reports "something is broken", run all three checks before guessing:
 

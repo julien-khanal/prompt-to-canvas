@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  macOS LaunchAgent for prompt-canvas dev server.
+  Auto-starts on login, restarts on crash, throttled to 10s between retries.
+
+  Install:
+    cp scripts/launchagent/de.julienkhanal.prompt-canvas.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist
+
+  Stop / disable:
+    launchctl unload ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist
+
+  Inspect logs:
+    tail -f ~/Library/Logs/prompt-canvas/dev.out.log
+    tail -f ~/Library/Logs/prompt-canvas/dev.err.log
+
+  Restart manually after a code change that needs a fresh server:
+    launchctl kickstart -k gui/$(id -u)/de.julienkhanal.prompt-canvas
+
+  Adapt the WorkingDirectory + log paths if your username or layout differs.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>de.julienkhanal.prompt-canvas</string>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/julien.khanal/projects/prompt-canvas</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/pnpm</string>
+    <string>dev</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>NODE_ENV</key>
+    <string>development</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+    <key>Crashed</key>
+    <true/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>/Users/julien.khanal/Library/Logs/prompt-canvas/dev.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/julien.khanal/Library/Logs/prompt-canvas/dev.err.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

@@ -148,6 +148,29 @@ After editing `cowork-skill/SKILL.md` or `cowork-skill/SKILL-ops.md` in the repo
 
 The script finds every `prompt-canvas-control` and `prompt-canvas-ops` folder under `~/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/` and copies the latest source over. After running, tell the user to start a fresh Cowork chat (active sessions cache the loaded skill body until restart).
 
+## Recipe 5c — manage the dev-server LaunchAgent
+
+The user has a macOS LaunchAgent at `~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist` that auto-starts `pnpm dev` on login and restarts on crash. So the dev server should always be up. Common operations:
+
+```bash
+# Check status (running PID + last exit code)
+launchctl list | grep prompt-canvas
+
+# Restart after a code change that the dev server can't HMR (rare — Next handles most)
+launchctl kickstart -k gui/$(id -u)/de.julienkhanal.prompt-canvas
+
+# Stop temporarily (until next login)
+launchctl unload ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist
+
+# Re-enable
+launchctl load ~/Library/LaunchAgents/de.julienkhanal.prompt-canvas.plist
+
+# Tail logs
+tail -f ~/Library/Logs/prompt-canvas/dev.{out,err}.log
+```
+
+If the user reports "canvas isn't reachable", health check first (Recipe 6). If port 3000 is empty, kickstart the agent rather than launching `pnpm dev` manually — otherwise you end up with two competing processes.
+
 ## Recipe 6 — health check
 
 When user reports "something is broken", run all three checks before guessing:

@@ -11,7 +11,28 @@ interface ClaudeExecuteReq {
   temperature?: number;
   maxTokens?: number;
   inputs?: Array<{ label: string; text: string }>;
+  /** Upstream image data URLs (e.g. from imageGen / imageRef nodes). Each
+   * is parsed and sent as a multimodal image block before the text prompt. */
+  images?: string[];
   apiKey: string;
+}
+
+const ALLOWED_IMG_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+
+function dataUrlToImageBlock(dataUrl: string): Anthropic.ImageBlockParam | null {
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return null;
+  const media_type = m[1];
+  const data = m[2];
+  if (!ALLOWED_IMG_TYPES.has(media_type)) return null;
+  return {
+    type: "image",
+    source: {
+      type: "base64",
+      media_type: media_type as "image/jpeg" | "image/png" | "image/gif" | "image/webp",
+      data,
+    },
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -47,6 +68,21 @@ export async function POST(req: NextRequest) {
       ]
     : [];
 
+  // Build user content. If we have upstream images, send multimodal blocks
+  // (images first, then the text task). Otherwise send a plain string for
+  // back-compat with the existing cache shape.
+  const imageBlocks = (body.images ?? [])
+    .map(dataUrlToImageBlock)
+    .filter((b): b is Anthropic.ImageBlockParam => b !== null);
+
+  const userContent: Anthropic.MessageParam["content"] =
+    imageBlocks.length > 0
+      ? [
+          ...imageBlocks,
+          { type: "text", text: `${inputsBlock}${body.prompt}` },
+        ]
+      : `${inputsBlock}${body.prompt}`;
+
   try {
     const isOpus = body.model === "claude-opus-4-7";
     const res = await client.messages.create({
@@ -54,7 +90,7 @@ export async function POST(req: NextRequest) {
       max_tokens: body.maxTokens ?? 1024,
       ...(isOpus ? {} : { temperature: body.temperature ?? 0.7 }),
       ...(systemBlocks.length ? { system: systemBlocks } : {}),
-      messages: [{ role: "user", content: `${inputsBlock}${body.prompt}` }],
+      messages: [{ role: "user", content: userContent }],
     });
 
     const text = res.content

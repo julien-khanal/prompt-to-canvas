@@ -43,7 +43,7 @@ export async function executeNode(nodeId: string): Promise<ExecuteOutcome> {
 
   switch (node.data.kind) {
     case "prompt": {
-      const outcome = await runPrompt(node, node.data, inputs.text);
+      const outcome = await runPrompt(node, node.data, inputs.text, inputs.images);
       if (outcome.ok) refreshDownstreamOutputs(node.id);
       return outcome;
     }
@@ -316,7 +316,8 @@ function gatherInputs(
 async function runPrompt(
   node: CanvasNode,
   data: PromptNodeData,
-  inputs: Array<{ label: string; text: string }>
+  inputs: Array<{ label: string; text: string }>,
+  images: string[] = []
 ): Promise<ExecuteOutcome> {
   const store = useCanvasStore.getState();
   const params = {
@@ -326,6 +327,11 @@ async function runPrompt(
     systemPrompt: data.systemPrompt ?? null,
     temperature: data.temperature,
     inputs,
+    // include images in cache key: same prompt + different upstream image
+    // = different result. Length+head fingerprint keeps the key small.
+    images: images.length > 0
+      ? images.map((u) => `${u.length}:${u.slice(0, 64)}`)
+      : undefined,
     cacheBust: data.cacheBust ?? 0,
   };
   const hash = await hashFor(params);
@@ -361,6 +367,7 @@ async function runPrompt(
         systemPrompt: data.systemPrompt,
         temperature: data.temperature,
         inputs,
+        images,
         apiKey,
       }),
       signal: currentSignal(),

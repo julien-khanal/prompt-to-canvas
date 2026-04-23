@@ -19,6 +19,7 @@ const KNOWN_TYPES = new Set([
   "run_workflow_with_inputs",
   "describe_workflow_inputs",
   "list_skills",
+  "get_skill",
   "delete_skill",
 ]);
 

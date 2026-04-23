@@ -30,6 +30,52 @@ function parseDataUrl(url: string): { mime: string; data: string } | null {
   return { mime: match[1], data: match[2] };
 }
 
+/**
+ * Try to extract a valid judge-shape object from Claude's reply. Models
+ * occasionally wrap JSON in code fences, prepend "Here is the evaluation:",
+ * or — when uncertain about an image — refuse with prose. Be forgiving:
+ *   1. strip ``` fences and language tags
+ *   2. take the first balanced { … } substring
+ *   3. JSON.parse it; clamp score to [0, 10]
+ * Returns null if no usable JSON could be extracted.
+ */
+function tryParseJudgeJson(
+  text: string
+): { score: number | null; feedback: string; suggestedPrompt: string } | null {
+  if (!text) return null;
+
+  let cleaned = text.trim();
+  // Strip Markdown code fences if present.
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "");
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end === -1 || end <= start) return null;
+
+  let parsed: { score?: unknown; feedback?: unknown; suggestedPrompt?: unknown };
+  try {
+    parsed = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+
+  const rawScore = parsed.score;
+  const score =
+    typeof rawScore === "number" && Number.isFinite(rawScore)
+      ? Math.max(0, Math.min(10, rawScore))
+      : null;
+  // If we got JSON but no usable score AND no feedback, it's not really a
+  // judge response — let the soft-fail path handle it instead.
+  if (score === null && !parsed.feedback) return null;
+
+  return {
+    score,
+    feedback: typeof parsed.feedback === "string" ? parsed.feedback : "",
+    suggestedPrompt:
+      typeof parsed.suggestedPrompt === "string" ? parsed.suggestedPrompt : "",
+  };
+}
+
 export async function POST(req: NextRequest) {
   let body: JudgeReq;
   try {
@@ -95,23 +141,20 @@ export async function POST(req: NextRequest) {
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join("");
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start === -1 || end === -1)
-      return NextResponse.json({ error: "judge returned non-JSON", raw: text }, { status: 502 });
-    let parsed: { score?: number; feedback?: string; suggestedPrompt?: string };
-    try {
-      parsed = JSON.parse(text.slice(start, end + 1));
-    } catch (err) {
-      return NextResponse.json(
-        { error: "could not parse judge json", raw: text, detail: String(err) },
-        { status: 502 }
-      );
+
+    const parseAttempt = tryParseJudgeJson(text);
+    if (parseAttempt) {
+      return NextResponse.json({ ...parseAttempt, usage: res.usage });
     }
+
+    // SOFT-FAIL — if Claude refused / rambled / couldn't see the artifact,
+    // return a deterministic shape with score=null and the raw response as
+    // feedback. This lets the critic loop terminate gracefully (no hard
+    // error on the node) instead of forcing the whole workflow to abort.
     return NextResponse.json({
-      score: typeof parsed.score === "number" ? Math.max(0, Math.min(10, parsed.score)) : null,
-      feedback: parsed.feedback ?? "",
-      suggestedPrompt: parsed.suggestedPrompt ?? "",
+      score: null,
+      feedback: `judge could not return parseable JSON. Raw response: ${text.slice(0, 280)}${text.length > 280 ? "…" : ""}`,
+      suggestedPrompt: "",
       usage: res.usage,
     });
   } catch (err) {

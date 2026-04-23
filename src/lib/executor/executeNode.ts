@@ -3,6 +3,7 @@
 import { getKey } from "@/lib/crypto/keyring";
 import { getCached, hashFor, putCached, type NodeResult } from "@/lib/cache/resultCache";
 import { useCanvasStore } from "@/lib/canvas/store";
+import { downscaleForClaude, downscaleManyForClaude } from "@/lib/util/downscaleForClaude";
 import type {
   CanvasNode,
   CriticNodeData,
@@ -140,6 +141,9 @@ async function runCritic(
       return { ok: false, error: "no upstream output" };
     }
 
+    // Same 5 MB Anthropic cap applies here. The judge sends the upstream
+    // image for evaluation; compress it before transmission.
+    const judgeImage = sourceImage ? await downscaleForClaude(sourceImage) : undefined;
     let judgeJson: { score: number | null; feedback?: string; suggestedPrompt?: string };
     try {
       const res = await fetch("/api/claude/judge", {
@@ -150,7 +154,7 @@ async function runCritic(
           criteria: data.criteria,
           sourcePrompt: sourcePromptText,
           sourceText,
-          sourceImageDataUrl: sourceImage,
+          sourceImageDataUrl: judgeImage,
           apiKey,
         }),
         signal: currentSignal(),
@@ -358,6 +362,11 @@ async function runPrompt(
   });
 
   try {
+    // Anthropic's API rejects single images over 5 MB base64. User-uploaded
+    // refs (especially 2K+ photos) routinely exceed this. Compress in-place
+    // before sending; the originals stay untouched in IndexedDB so Gemini
+    // (20 MB cap) keeps the full quality.
+    const claudeImages = await downscaleManyForClaude(images);
     const res = await fetch("/api/claude/execute", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -367,7 +376,7 @@ async function runPrompt(
         systemPrompt: data.systemPrompt,
         temperature: data.temperature,
         inputs,
-        images,
+        images: claudeImages,
         apiKey,
       }),
       signal: currentSignal(),

@@ -242,12 +242,15 @@ function StyleAnchorBody({
     try {
       const apiKey =
         (await (await import("@/lib/crypto/keyring")).getKey("anthropic")) ?? "";
+      // Compress oversize uploads before hitting Anthropic's 5 MB-per-image cap.
+      const { downscaleManyForClaude } = await import("@/lib/util/downscaleForClaude");
+      const compressed = await downscaleManyForClaude(refs.map((r) => r.dataUrl));
       const res = await fetch("/api/claude/distill-style", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           apiKey,
-          images: refs.map((r) => r.dataUrl),
+          images: compressed,
           existingDistillate: data.distillate,
         }),
       });

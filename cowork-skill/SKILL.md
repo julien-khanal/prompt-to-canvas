@@ -204,6 +204,34 @@ chain. The audit node can use Markdown freely because output just displays it.
 **Long story short:** prompt-nodes that feed imageGen = output-only-image-prompt.
 Prompt-nodes that feed output = free format.
 
+### Positive guidance — when the user wants to extend a workflow, prefer ADDING the right node type over PATCHING
+
+`patch_node` is right when the user wants to change CONTENT of an existing node
+(rewrite the brief, swap a model, update a label). It's the WRONG tool when the
+user asks for a behavioral change that maps to a different node type. Decision
+table:
+
+| User says (paraphrased) | Right move | Wrong move |
+|---|---|---|
+| "iterate on Hero V1 until it's good enough", "auto-improve V1 to score 8+" | **Add a `critic` node** wired to the imageGen. Set `criteria`, `threshold`, `maxIterations`. Done. | Patch the upstream prompt-node to "self-critique" (it can't auto-patch upstream) |
+| "show me V2, V3, V4 — I want to see each step" | **Add a refiner-prompt + new imageGen pair** per step (Example 4 in the generator). Each refiner outputs ONLY the next image prompt. | Patch the existing imageGen's prompt to "regenerate three times" (no such mechanism) |
+| "add a scoring pass — show me a quality report at the end" | **Add a separate prompt-node** wired from the final imageGen → output. Markdown is fine here because it ONLY feeds output. | Patch any image-chain-feeding prompt to add scores |
+| "compare the new V3 with the old V1" | **Add a `compare` node** with edges from both imageGens → output. | Render side-by-side in a single imageGen prompt |
+| "do 6 different settings instead of 3" | **Add an `array` node** with 6 items, wire to ONE imageGen, delete the redundant imageGens (or use create_workflow). | Duplicate the imageGen 6 times via patch chain |
+| "lock in our brand style across all 4 hero shots" | **Add a `styleAnchor` node** (with distillate) wired to all 4 imageGens. User uploads refs after. | Patch each imageGen's prompt with the same style description |
+| "add a celebrity check / brand check / safety constraint" | **Patch the existing critic-style prompt-node** to add the check INTERNALLY (Pattern above). Output stays purity-compliant. | Add a new "check" node that feeds into the image chain |
+| "rewrite the brief", "change the model", "rename this node" | **patch_node** is correct here. | overthinking it |
+
+Why this matters: Cowork sessions tend to default to `patch_node` because it's
+the most flexible API surface. But for behavioral changes, ADDING a purpose-built
+node type is almost always cleaner — it gives the user the right UI affordances
+(critic shows score + iteration count; compare shows the slider; array shows the
+fan-out badge), it composes correctly with future runs, and it doesn't risk
+breaking image-prompt purity.
+
+If you find yourself patching a prompt-node to add scoring, audit, comparison,
+variant fan-out, or style-locking logic — STOP and consult the table above.
+
 Enums:
 - Claude `model`: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`
 - Image `model`: `gemini-3-pro-image-preview`, `gemini-2.5-flash-image`, `fal-flux-schnell`, `fal-flux-dev`, `fal-flux-pro`
@@ -353,6 +381,29 @@ Returns all skills in the user's library with metadata.
 ```
 
 `result`: `[{ id, name, description, bytes, alwaysOn, activeInCurrentWorkflow, updatedAt }]`.
+
+## get_skill
+
+Returns the FULL body of one skill, including the markdown content the
+workflow generator sees as a cached system block. Use this to audit what's
+guiding the generator before you decide to rewrite via `create_skill`.
+
+```json
+{ "type": "get_skill", "payload": { "id": "sk-..." } }
+```
+
+Or by name (case-insensitive):
+
+```json
+{ "type": "get_skill", "payload": { "name": "Telekom WM TV-Szene" } }
+```
+
+`result`: `{ id, name, description, body, bytes, alwaysOn, activeInCurrentWorkflow, updatedAt }`.
+
+**When to use this:** before refactoring a long-lived skill that's misbehaving
+(e.g. injecting structural rules that break image-prompt purity). Read first,
+then send a fixed body via `create_skill` — which is idempotent and updates by
+name.
 
 ## delete_skill
 

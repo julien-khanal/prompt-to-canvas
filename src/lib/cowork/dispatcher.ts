@@ -67,6 +67,8 @@ export async function dispatchCommand(cmd: BridgeCommand): Promise<DispatchOutco
         return await onRunWithInputs(payload);
       case "list_skills":
         return await onListSkills();
+      case "get_skill":
+        return await onGetSkill(payload);
       case "delete_skill":
         return await onDeleteSkill(payload);
       default:
@@ -216,6 +218,32 @@ async function onListSkills(): Promise<DispatchOutcome> {
       activeInCurrentWorkflow: store.activeSkillIds.includes(s.id) || s.alwaysOn,
       updatedAt: s.updatedAt,
     })),
+  };
+}
+
+async function onGetSkill(p: Record<string, unknown>): Promise<DispatchOutcome> {
+  const id = typeof p.id === "string" ? p.id : null;
+  const name = typeof p.name === "string" ? p.name : null;
+  if (!id && !name) return { ok: false, error: "id or name required" };
+  const all = await listSkills();
+  const target = id
+    ? all.find((s) => s.id === id)
+    : all.find((s) => s.name.toLowerCase() === name!.toLowerCase());
+  if (!target) return { ok: false, error: "skill not found" };
+  const store = useCanvasStore.getState();
+  return {
+    ok: true,
+    result: {
+      id: target.id,
+      name: target.name,
+      description: target.description,
+      body: target.body,
+      bytes: target.body.length,
+      alwaysOn: target.alwaysOn,
+      activeInCurrentWorkflow:
+        store.activeSkillIds.includes(target.id) || target.alwaysOn,
+      updatedAt: target.updatedAt,
+    },
   };
 }
 

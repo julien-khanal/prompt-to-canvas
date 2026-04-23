@@ -64,53 +64,17 @@ export function applyImagePromptPurity(wf: Workflow): Workflow {
 }
 
 /**
- * Drop redundant edges to terminal sinks when an intermediate critic node
- * already routes the same upstream artifact.
- *
- * Pattern: if the graph contains both
- *   bild-X → critic-X → final
- *   bild-X → final          (redundant)
- * then `bild-X → final` is removed. The critic's iteration is the
- * authoritative final state; routing the pre-iteration image to the same
- * sink either misleads (shows pre-critic artifact) or duplicates.
- *
- * Idempotent.
- */
-export function dedupCriticOutputEdges(wf: Workflow): Workflow {
-  const nodesById = new Map(wf.nodes.map((n) => [n.id, n]));
-  const edgesToDrop = new Set<number>();
-
-  for (let i = 0; i < wf.edges.length; i++) {
-    const edge = wf.edges[i];
-    const sink = nodesById.get(edge.target);
-    if (!sink || sink.type !== "output") continue;
-
-    // Look for: edge.source -> some critic node -> edge.target
-    const hasCriticBypass = wf.edges.some((e1) => {
-      if (e1.source !== edge.source) return false;
-      const intermediate = nodesById.get(e1.target);
-      if (!intermediate || intermediate.type !== "critic") return false;
-      return wf.edges.some(
-        (e2) => e2.source === intermediate.id && e2.target === edge.target
-      );
-    });
-    if (hasCriticBypass) {
-      edgesToDrop.add(i);
-    }
-  }
-
-  if (edgesToDrop.size === 0) return wf;
-  return {
-    nodes: wf.nodes,
-    edges: wf.edges.filter((_, i) => !edgesToDrop.has(i)),
-  };
-}
-
-/**
  * Run all generator post-processors in dependency order.
  * Caller passes the freshly parsed workflow; the returned object is what
  * the client / canvas mapper sees.
+ *
+ * Note: an earlier dedupCriticOutputEdges() ran here that dropped the
+ * direct bild-X → final edge whenever a bild-X → critic-X → final
+ * triangle existed. Removed because the user couldn't see the data flow
+ * — visually the image source vanished. The runtime now dedupes
+ * collection in gatherInputs() instead, so we keep both visual edges
+ * AND avoid double-counting images.
  */
 export function applyGeneratorPolicies(wf: Workflow): Workflow {
-  return dedupCriticOutputEdges(applyImagePromptPurity(wf));
+  return applyImagePromptPurity(wf);
 }

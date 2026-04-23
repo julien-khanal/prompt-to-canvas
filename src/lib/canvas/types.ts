@@ -37,6 +37,11 @@ export interface PromptNodeData extends BaseNodeData {
 export type FluxModel = "fal-flux-schnell" | "fal-flux-dev" | "fal-flux-pro";
 export type ImageGenModel = GeminiImageModel | FluxModel;
 
+export interface ImageGenHistoryEntry {
+  dataUrl: string;
+  ts: number;
+}
+
 export interface ImageGenNodeData extends BaseNodeData {
   kind: "imageGen";
   model: ImageGenModel;
@@ -50,6 +55,10 @@ export interface ImageGenNodeData extends BaseNodeData {
   cacheBust?: number;
   loraUrl?: string;
   loraStrength?: number;
+  /** Past renders for this node, newest first, capped at MAX_OUTPUT_HISTORY.
+   * Built up across re-runs so the user can swap back to a previous result
+   * (Google-Gemini-style image gallery). Cache hits don't append. */
+  outputHistory?: ImageGenHistoryEntry[];
 }
 
 export type RefRole =

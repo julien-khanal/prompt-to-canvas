@@ -382,6 +382,34 @@ Returns all skills in the user's library with metadata.
 
 `result`: `[{ id, name, description, bytes, alwaysOn, activeInCurrentWorkflow, updatedAt }]`.
 
+## add_edge
+
+Adds a single directed edge between two existing nodes on the current
+workflow. Idempotent — if the edge already exists, returns added:false.
+Self-loops are rejected.
+
+```json
+{ "type": "add_edge", "payload": { "source": "bild-a", "target": "final" } }
+```
+
+`result`: `{ added: bool, id, source, target }` on success, or
+`{ added: false, reason: "already exists" }` if the edge was already
+present.
+
+**Use cases:** restoring visual connections after a workflow was generated
+without them, branching the same artifact to multiple sinks, wiring an
+audit prompt-node to the output node.
+
+## remove_edge
+
+Removes any edge(s) matching the (source, target) pair. Idempotent.
+
+```json
+{ "type": "remove_edge", "payload": { "source": "bild-a", "target": "final" } }
+```
+
+`result`: `{ removed: <count>, source, target }`.
+
 ## get_skill
 
 Returns the FULL body of one skill, including the markdown content the

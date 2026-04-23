@@ -71,6 +71,10 @@ export async function dispatchCommand(cmd: BridgeCommand): Promise<DispatchOutco
         return await onGetSkill(payload);
       case "delete_skill":
         return await onDeleteSkill(payload);
+      case "add_edge":
+        return onAddEdge(payload);
+      case "remove_edge":
+        return onRemoveEdge(payload);
       default:
         return { ok: false, error: `unknown command type: ${cmd.type}` };
     }
@@ -219,6 +223,40 @@ async function onListSkills(): Promise<DispatchOutcome> {
       updatedAt: s.updatedAt,
     })),
   };
+}
+
+function onAddEdge(p: Record<string, unknown>): DispatchOutcome {
+  const source = typeof p.source === "string" ? p.source.trim() : "";
+  const target = typeof p.target === "string" ? p.target.trim() : "";
+  if (!source || !target) return { ok: false, error: "source and target required" };
+  if (source === target) return { ok: false, error: "self-loop edge not allowed" };
+  const store = useCanvasStore.getState();
+  const nodeIds = new Set(store.nodes.map((n) => n.id));
+  if (!nodeIds.has(source)) return { ok: false, error: `unknown source node "${source}"` };
+  if (!nodeIds.has(target)) return { ok: false, error: `unknown target node "${target}"` };
+  const exists = store.edges.some((e) => e.source === source && e.target === target);
+  if (exists) return { ok: true, result: { added: false, reason: "already exists" } };
+  const id = `e-${Date.now().toString(36)}-${source}-${target}`;
+  const newEdge: CanvasEdge = { id, source, target, animated: false };
+  store.setEdges([...store.edges, newEdge]);
+  return { ok: true, result: { added: true, id, source, target } };
+}
+
+function onRemoveEdge(p: Record<string, unknown>): DispatchOutcome {
+  const source = typeof p.source === "string" ? p.source.trim() : "";
+  const target = typeof p.target === "string" ? p.target.trim() : "";
+  if (!source || !target) return { ok: false, error: "source and target required" };
+  const store = useCanvasStore.getState();
+  const before = store.edges.length;
+  const remaining = store.edges.filter(
+    (e) => !(e.source === source && e.target === target)
+  );
+  const removed = before - remaining.length;
+  if (removed === 0) {
+    return { ok: true, result: { removed: 0, reason: "no matching edge" } };
+  }
+  store.setEdges(remaining);
+  return { ok: true, result: { removed, source, target } };
 }
 
 async function onGetSkill(p: Record<string, unknown>): Promise<DispatchOutcome> {

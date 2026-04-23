@@ -21,6 +21,8 @@ const KNOWN_TYPES = new Set([
   "list_skills",
   "get_skill",
   "delete_skill",
+  "add_edge",
+  "remove_edge",
 ]);
 
 export async function POST(req: NextRequest) {

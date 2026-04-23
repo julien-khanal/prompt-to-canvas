@@ -7,6 +7,7 @@ import { downscaleForClaude, downscaleManyForClaude } from "@/lib/util/downscale
 import type {
   CanvasNode,
   CriticNodeData,
+  ImageGenHistoryEntry,
   ImageGenNodeData,
   ImageRefNodeData,
   PromptNodeData,
@@ -311,17 +312,23 @@ function gatherInputs(
   const images: string[] = [];
   const refs: GatheredInputs["refs"] = [];
   const variantItems: string[] = [];
+  // Track source nodes whose images we've already collected, so the same
+  // bild-X doesn't double-contribute when reachable both directly AND via
+  // a critic pass-through (now that dedupCriticOutputEdges is gone).
+  const imageSourcesSeen = new Set<string>();
   for (const srcId of sources) {
     const src = nodes.find((n) => n.id === srcId);
     if (!src) continue;
     if (src.data.kind === "prompt" && src.data.output) {
       text.push({ label: src.data.label, text: src.data.output });
     } else if (src.data.kind === "imageGen") {
+      if (imageSourcesSeen.has(src.id)) continue;
       if (src.data.outputImages && src.data.outputImages.length > 0) {
         for (const u of src.data.outputImages) images.push(u);
       } else if (src.data.outputImage) {
         images.push(src.data.outputImage);
       }
+      imageSourcesSeen.add(src.id);
     } else if (src.data.kind === "imageRef") {
       const ref = src.data as ImageRefNodeData;
       const url = ref.dataUrl ?? ref.url;
@@ -347,16 +354,20 @@ function gatherInputs(
       // Critics produce no artifact themselves — they side-effect their
       // upstream. For collection (e.g. by output nodes), transparently
       // pull the iterated artifact from the critic's primary upstream.
-      // Without this pass-through, dedupCriticOutputEdges leaves only
-      // critic→final edges and the output node sees nothing.
+      // Dedupe via imageSourcesSeen so a graph that has BOTH a direct
+      // bild→final edge AND a critic→final edge (visually preferred —
+      // the user sees both connections in React Flow) doesn't collect
+      // the same image twice.
       const primary = pickCriticPrimaryUpstream(src.id, nodes, edges);
       if (!primary) continue;
       if (primary.data.kind === "imageGen") {
+        if (imageSourcesSeen.has(primary.id)) continue;
         if (primary.data.outputImages && primary.data.outputImages.length > 0) {
           for (const u of primary.data.outputImages) images.push(u);
         } else if (primary.data.outputImage) {
           images.push(primary.data.outputImage);
         }
+        imageSourcesSeen.add(primary.id);
       } else if (primary.data.kind === "prompt" && primary.data.output) {
         text.push({ label: primary.data.label, text: primary.data.output });
       }
@@ -629,9 +640,23 @@ async function runImageGen(
     if (!res.ok) throw new Error(json.error ?? `http ${res.status}`);
     const result: NodeResult = { kind: "image", dataUrl: json.dataUrl, mime: json.mime };
     await putCached(hash, result);
+    // Build history: prepend new render, deduplicate by dataUrl (so a
+    // re-run of an identical-output prompt doesn't push twice), cap at
+    // MAX_OUTPUT_HISTORY entries. Includes the previously-active image
+    // if it's not already in history (covers the "first re-run after
+    // legacy state" case).
+    const existing = store.nodes.find((n) => n.id === node.id)?.data as
+      | ImageGenNodeData
+      | undefined;
+    const newHistory = appendImageHistory(
+      existing?.outputHistory,
+      result.dataUrl,
+      existing?.outputImage
+    );
     store.patchNodeData<ImageGenNodeData>(node.id, {
       outputImage: result.dataUrl,
       status: "done",
+      outputHistory: newHistory,
     });
     return { ok: true };
   } catch (err) {
@@ -643,6 +668,38 @@ async function runImageGen(
     store.setNodeStatus(node.id, "error", msg);
     return { ok: false, error: msg };
   }
+}
+
+const MAX_OUTPUT_HISTORY = 5;
+
+/**
+ * Build the new history array. Newest goes first; the previously-active
+ * image (if any, not already in history) is preserved before the cap is
+ * applied. Same dataUrl never appears twice.
+ */
+function appendImageHistory(
+  current: ImageGenHistoryEntry[] | undefined,
+  newDataUrl: string,
+  prevActive: string | undefined
+): ImageGenHistoryEntry[] {
+  const seen = new Set<string>([newDataUrl]);
+  const out: ImageGenHistoryEntry[] = [{ dataUrl: newDataUrl, ts: Date.now() }];
+
+  // Carry the previously-active image as the first historical entry if
+  // it isn't already represented (handles legacy nodes that have an
+  // outputImage but no history yet).
+  if (prevActive && !seen.has(prevActive)) {
+    out.push({ dataUrl: prevActive, ts: Date.now() - 1 });
+    seen.add(prevActive);
+  }
+
+  for (const entry of current ?? []) {
+    if (seen.has(entry.dataUrl)) continue;
+    out.push(entry);
+    seen.add(entry.dataUrl);
+    if (out.length >= MAX_OUTPUT_HISTORY) break;
+  }
+  return out.slice(0, MAX_OUTPUT_HISTORY);
 }
 
 async function propagateToOutput(

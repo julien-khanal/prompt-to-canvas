@@ -9,7 +9,16 @@ You're a coach for the user's local Prompt Canvas setup. You can't ssh into thei
 
 ## What this project is (1 line)
 
-A browser-based prompt-to-workflow canvas (Next.js + React Flow + Claude Opus + Gemini) with three control surfaces: the browser UI at `http://localhost:3000`, a Cowork bridge (`/api/external/*`), and exported workflows callable as MCP tools from Claude Desktop / Cursor.
+A browser-based prompt-to-workflow canvas (Next.js + React Flow + Claude Opus + Gemini Nano Banana + Flux via fal.ai) with three control surfaces: the browser UI at `http://localhost:3000`, a Cowork bridge (`/api/external/*`), and exported workflows callable as MCP tools from Claude Desktop / Cursor.
+
+## Capabilities (current as of phase 19)
+
+- 8 node types: prompt (Claude), imageGen (Gemini Pro/Flash + Flux Schnell/Dev/Pro with optional LoRA), imageRef, styleAnchor (5–14 ref bundle + Claude-distilled DNA), array (variants), critic (eval + auto-patch upstream), compare (slider A/B), output
+- Three image providers: Gemini (default), Flux via fal.ai (for trained-LoRA inference)
+- Skills system: workflow-generator-level cached system blocks, max 3 active per workflow
+- MCP-export of any parameterized workflow (`{{placeholder}}` syntax)
+- Dataset ZIP export per workflow (LoRA-training-ready bundle, Dashboard → Package icon)
+- Reactive mode (auto-rerun downstream on input change), bypass/mute, undo, fork-vs-apply chat suggestions, per-workflow autosave
 
 ## Where things live (on the user's Mac)
 
@@ -134,6 +143,9 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000
 
 - **Template workflow** has `{{placeholder}}` slots. Don't run it directly — call it via MCP / `run_workflow_with_inputs`.
 - Each MCP call **clones** the template into a new workflow named `<template> · <input1> · <input2>`. Switches the canvas to the clone. Original template stays untouched.
+- **StyleAnchor** = persistent brand library node holding 5–14 reference images + Claude-distilled style description. One wire to an imageGen replaces 5–14 individual imageRef connections. Use for any work where brand/style consistency across multiple gens matters.
+- **Flux + LoRA** = alternative image backend via fal.ai. Use when the user has trained their own LoRA (typically on a dataset exported from this tool). Set `loraUrl` + `loraStrength` on the imageGen node when model is `fal-flux-dev`.
+- **Dataset export** = Dashboard → Package icon next to a workflow → downloads ZIP of all generated images + metadata.json + README, ready to upload to fal.ai or Replicate for LoRA training.
 - **Apply** (chat suggestion button) = patch current workflow in place.
 - **Fork** (chat suggestion button) = duplicate first, switch to the duplicate, then patch — keeps original for A/B comparison.
 - **Reactive mode** = per-node auto-rerun on input change. 12-runs/min ceiling. Disable while a Critic is in the graph.

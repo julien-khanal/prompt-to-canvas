@@ -9,7 +9,16 @@ You are inside the prompt-canvas project. This skill captures the end-state of h
 
 ## What this project is (1 line)
 
-A browser-based prompt-to-workflow canvas (Next.js 16 + React Flow + Claude Opus + Gemini Nano Banana) with three control surfaces: the browser canvas itself (`http://localhost:3000`), Cowork via a bridge (`/api/external/*`), and exported workflows callable as MCP tools from Claude Desktop / Cursor.
+A browser-based prompt-to-workflow canvas (Next.js 16 + React Flow + Claude Opus + Gemini Nano Banana + Flux via fal.ai) with three control surfaces: the browser canvas itself (`http://localhost:3000`), Cowork via a bridge (`/api/external/*`), and exported workflows callable as MCP tools from Claude Desktop / Cursor.
+
+## Current capabilities (phase 19)
+
+- 8 node types: prompt, imageGen, imageRef, styleAnchor, array, critic, compare, output
+- 3 image providers: Gemini (Pro/Flash), Flux (Schnell/Dev/Pro with optional LoRA via fal.ai)
+- Workflow generator with 3 expert skills auto-loaded: gemini-image-craft, workflow-topology, creative-brief
+- MCP-export of any parameterized workflow with `{{placeholder}}` slots
+- Dataset ZIP export per workflow (Dashboard → Package icon) — LoRA-training-ready
+- Reactive mode, bypass/mute, undo, fork-vs-apply chat suggestions, per-workflow autosave
 
 ## Where things live
 
@@ -169,6 +178,8 @@ echo -n "tunnel: "; pgrep -fl "cloudflared tunnel --url http://localhost:3000" |
 | Hero Image stuck "running" forever | Aborted run left UI desynced | Browser tab refresh (⌘R) |
 | Critic returns "criteria empty" | Critic node criteria field blank | Click critic → Inspector → fill criteria → wait 1.5s for autosave |
 | Image is 1:1 even though aspect=16:9 | Stale cache from before fix `e60dbdf` | Reset cache on the node, then Run |
+| API keys "stored" but not working after Mac restart / lid close | Pre-fix `0dc601e`: legacy fingerprint-derived key changed when screen dimensions changed. Fixed via stable device key in localStorage. | One re-entry; subsequent reboots stable |
+| Flux node returns "fal.ai key missing" | User hasn't added fal.ai key in Settings | Settings → fal.ai field → paste key → Save |
 | `prompt_canvas__*` tool missing in Claude Desktop | Config not loaded → never restarted | Cmd+Q Claude Desktop fully + relaunch |
 | MCP run starts but goes to "transient" workflow | Pre-fix `baf3b2f` behavior — should not occur on current build | If seen: pull, rebuild, refresh |
 | Reactive runs forever / spends budget | Critic + Reactive both active | Turn off Reactive |

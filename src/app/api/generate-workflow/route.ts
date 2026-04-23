@@ -3,8 +3,19 @@ import Anthropic from "@anthropic-ai/sdk";
 import { WORKFLOW_SYSTEM_PROMPT, WORKFLOW_GENERATOR_VERSION } from "@/lib/workflow/systemPrompt";
 import { extractJsonObject } from "@/lib/workflow/extractJson";
 import { parseWorkflow } from "@/lib/workflow/schema";
+import { applyGeneratorPolicies } from "@/lib/workflow/postProcess";
 import { buildSkillSystemBlocks } from "@/lib/workflow/skillBlocks";
 import type { Skill } from "@/lib/db/skills";
+
+/**
+ * Max output tokens for the generator. Big graphs (12+ nodes with rich
+ * systemPrompts and criteria) can run 8-10k tokens of JSON. The previous
+ * cap of 6000 truncated mid-graph on the FIFA WM iterative workflow.
+ * Opus 4.7 supports up to 64k extended output; 16k gives comfortable
+ * headroom for typical workflows without burning latency on impossibly
+ * long graphs.
+ */
+const GENERATOR_MAX_TOKENS = 16000;
 
 export const runtime = "nodejs";
 
@@ -38,7 +49,7 @@ export async function POST(req: NextRequest) {
     const skillBlocks = buildSkillSystemBlocks(body.skills ?? []);
     const res = await client.messages.create({
       model: "claude-opus-4-7",
-      max_tokens: 6000,
+      max_tokens: GENERATOR_MAX_TOKENS,
       system: [
         {
           type: "text",
@@ -51,10 +62,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (res.stop_reason === "max_tokens") {
+      // Note: previously blamed active skills here, which was misleading —
+      // skills cost system-block tokens, not output tokens. The real cause
+      // is graph size + per-node detail (systemPrompt, criteria, etc.).
       return NextResponse.json(
         {
-          error:
-            "Generator hit the output cap mid-graph. With multiple skills active the JSON can get long. Try a slightly simpler prompt or fewer active skills.",
+          error: `Generator hit the ${GENERATOR_MAX_TOKENS}-token output cap mid-graph. The requested workflow is unusually large or detailed. Try one of: (a) split into two smaller workflows, (b) ask for fewer per-node details and patch them in afterwards, (c) reduce variant count.`,
         },
         { status: 502 }
       );
@@ -79,7 +92,7 @@ export async function POST(req: NextRequest) {
         { status: 502 }
       );
     }
-    const workflow = parseWorkflow(parsed);
+    const workflow = applyGeneratorPolicies(parseWorkflow(parsed));
 
     return NextResponse.json({
       workflow,

@@ -53,6 +53,7 @@ export async function workflowToCanvas(
           status: "idle",
           source: n.config.source,
           url: n.config.url,
+          role: n.config.role,
         };
         return { id: n.id, type: "imageRef", position: pos, data };
       }

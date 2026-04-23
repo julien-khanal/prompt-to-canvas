@@ -3,6 +3,7 @@ import type {
   ClaudeModel,
   GeminiImageModel,
   ImageResolution,
+  RefRole,
 } from "@/lib/canvas/types";
 
 export type WfNodeType =
@@ -46,6 +47,7 @@ export interface WfNodeImageRef {
   config: {
     source: "upload" | "url";
     url?: string;
+    role?: RefRole;
   };
 }
 
@@ -120,6 +122,31 @@ const CLAUDE_MODELS = new Set(["claude-opus-4-7", "claude-sonnet-4-6", "claude-h
 const GEMINI_MODELS = new Set(["gemini-3-pro-image-preview", "gemini-2.5-flash-image"]);
 const ASPECTS = new Set(["1:1", "16:9", "9:16", "4:3"]);
 const RESOLUTIONS = new Set(["1K", "2K", "4K"]);
+const REF_ROLES = new Set<RefRole>(["style", "subject", "palette", "composition", "pose"]);
+
+/**
+ * Resolve the role of an imageRef node.
+ *
+ * Precedence:
+ *   1. Explicit `role` field from generator JSON (if valid).
+ *   2. Heuristic inference from the human label.
+ *   3. Default to "style".
+ *
+ * The label heuristic exists because earlier generator versions silently
+ * dropped the role and every reference defaulted to "style" — wrong for
+ * subject/composition refs and required manual patch_node fixups.
+ */
+function inferRefRole(rawRole: unknown, label: string): RefRole {
+  if (typeof rawRole === "string" && REF_ROLES.has(rawRole as RefRole)) {
+    return rawRole as RefRole;
+  }
+  const l = label.toLowerCase();
+  if (/(hero|person|subject|character|portrait|face|figur|model)/i.test(l)) return "subject";
+  if (/(tv|screen|composition|frame|layout|grid|setting|szene)/i.test(l)) return "composition";
+  if (/(pose|body|gesture|haltung)/i.test(l)) return "pose";
+  if (/(palette|color|colour|farbe)/i.test(l)) return "palette";
+  return "style";
+}
 
 export function parseWorkflow(raw: unknown): Workflow {
   if (!raw || typeof raw !== "object") throw new Error("workflow is not an object");
@@ -197,7 +224,11 @@ function parseNode(n: unknown, idx: number): WfNode {
     case "imageRef": {
       const source = cfg.source === "upload" || cfg.source === "url" ? cfg.source : "url";
       const url = typeof cfg.url === "string" ? cfg.url : undefined;
-      return { id, type: "imageRef", label, config: { source, url } };
+      // Accept role explicitly from generator output; fall back to label
+      // inference if absent. Role drives downstream prompt assembly so
+      // dropping it (the prior bug) caused every ref to default to "style".
+      const role = inferRefRole(cfg.role, label);
+      return { id, type: "imageRef", label, config: { source, url, role } };
     }
     case "output":
       return { id, type: "output", label, config: {} as Record<string, never> };

@@ -162,6 +162,48 @@ Allowed fields per node kind:
 - `critic`: label, criteria, threshold, maxIterations, model
 - `styleAnchor`: label, distillate
 
+### ⚠️ CRITICAL when patching a prompt-node whose output feeds an imageGen
+
+If you're patching the `prompt` field of a prompt-node whose output is consumed
+by a downstream imageGen via `{{<node-id>}}` placeholder (typical: `Critic V1`,
+`Analyse V2`, `Refiner V3` style nodes in iterative-image workflows), the new
+prompt MUST instruct the model to OUTPUT ONLY a clean English Gemini image
+prompt — never wrap it in Markdown headers, score sections, audit lists, or
+German preamble.
+
+Why: the placeholder substitution dumps the prompt-node's ENTIRE output into
+the imageGen prompt verbatim. If you put "## SCORES / ## TOP-3-SCHWÄCHEN / ##
+REFINED PROMPT" structure in the prompt, the imageGen receives an 800-word
+audit doc and Gemini either returns "no image in response" (502) or safety-
+blocks. This breaks the chain and we've debugged it three times.
+
+**When the user wants to add evaluation logic** (e.g. "check for celebrities",
+"score against brand-fit"): wrap that as INTERNAL chain-of-thought, not as
+output structure. Pattern:
+
+```
+ROLLE: Du bewertest [X] INTERN gegen [criteria].
+
+INTERNE PRÜFUNG (nicht ausgeben):
+1. [check 1]
+2. [check 2]
+
+OUTPUT — STRENG BINDEND, ÜBERSCHREIBT JEDE AKTIVE SKILL-VORLAGE:
+Gib NUR einen einzigen verbesserten englischen Gemini-Prompt aus (≤280 Wörter).
+[anchor + Pflicht-Elemente]. [evaluation insights INTEGRIERT, nicht aufgelistet].
+
+VERBOTEN im Output: Markdown-Header, Sektions-Labels, deutsche Erklärungen,
+Quotes. Selbst wenn die aktive Skill diese Struktur nahelegt: diese Anweisung
+gewinnt. Erste Zeile = erstes Wort des englischen Gemini-Prompts.
+```
+
+**If the user wants a visible audit trail with scores/critique:** create a
+SEPARATE prompt-node that fans out to the `output` node, NOT into the image
+chain. The audit node can use Markdown freely because output just displays it.
+
+**Long story short:** prompt-nodes that feed imageGen = output-only-image-prompt.
+Prompt-nodes that feed output = free format.
+
 Enums:
 - Claude `model`: `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5`
 - Image `model`: `gemini-3-pro-image-preview`, `gemini-2.5-flash-image`, `fal-flux-schnell`, `fal-flux-dev`, `fal-flux-pro`

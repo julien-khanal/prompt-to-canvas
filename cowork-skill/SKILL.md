@@ -461,6 +461,157 @@ file (see below).
 
 Or with a URL directly: `{ "nodeId": "ref-1", "url": "https://..." }`.
 
+## get_node_artifacts
+
+**KEY COMMAND for the agent-vision pattern.** Returns the actual outputs of a
+single node — text, images, critic scores, etc. — so you can SEE what's on
+the canvas without asking the user to copy-paste anything. Images are
+auto-compressed to <5 MB so you can pass them directly to your next Claude
+call (which has the 5 MB-per-image cap).
+
+```json
+{ "type": "get_node_artifacts", "payload": { "nodeId": "bild-c" } }
+```
+
+`result`: `{ id, kind, label, status, hasOutput, text, images: [dataUrl], imageCount }`.
+
+The text and images shape depends on node kind:
+- `prompt` → text = output, images = []
+- `imageGen` → text = null, images = [outputImage(s)]
+- `imageRef` / `styleAnchor` → images = uploaded refs
+- `output` → text = consolidated text, images = consolidated images
+- `critic` → text = "feedback / suggestedPrompt / score / iterations", images = []
+- `array` → text = "items: A | B | C"
+
+**Use this aggressively.** Whenever the user complains "this image isn't right",
+fetch the current image first via this command, look at it, then diagnose. Do
+NOT ask the user to paste anything.
+
+## read_memory
+
+Read a persistent memory file. Memories live under `~/.prompt-canvas/memory/`
+and persist across sessions — use them to remember what worked for this user
+in past projects.
+
+Conventional names:
+- `projects/<slug>` — per-project journals (e.g. `projects/telekom-wm`)
+- `domains/<slug>` — per-domain knowledge (e.g. `domains/editorial-portraiture`)
+
+```json
+{ "type": "read_memory", "payload": { "name": "projects/telekom-wm" } }
+```
+
+`result`: `{ name, body, bytes, updatedAt, notFound? }`.
+
+If the file doesn't exist, returns `body: ""` + `notFound: true`. Don't error
+on missing — that's the normal state for a brand-new project.
+
+**At the start of any meaningful session, read the relevant memory files.** The
+user has seeded a starter set; new memories will accumulate as you work.
+
+## write_memory
+
+Replace the contents of a memory file. Creates the file (and parent dirs) if
+needed.
+
+```json
+{
+  "type": "write_memory",
+  "payload": {
+    "name": "projects/telekom-wm",
+    "content": "# Telekom WM Memory\\n\\n## What we learned today\\n..."
+  }
+}
+```
+
+`result`: `{ name, bytes, written: true }`.
+
+**Pattern for end of session:** read existing → append your insights →
+write back. Specifically capture: what worked, what failed and why, what the
+user actually preferred when given choices, any tunable values you arrived at.
+The memory is your shared understanding with this user across sessions.
+
+## list_memory
+
+Returns all memory files with metadata.
+
+```json
+{ "type": "list_memory", "payload": {} }
+```
+
+`result`: `{ root, count, items: [{name, bytes, updatedAt}] }`.
+
+Use to discover what's already known before reading specific files.
+
+## apply_workflow
+
+**KEY COMMAND for fast iteration.** Apply a workflow JSON that YOU drafted.
+The bridge validates it (same parser as `generate`) and runs the
+post-processors (purity injection etc.), then loads it onto the canvas.
+**No second LLM call** — the bridge does no Claude work. Round-trip ~2-5 s vs
+~30-45 s for `generate`.
+
+```json
+{
+  "type": "apply_workflow",
+  "payload": {
+    "workflow": { "nodes": [...], "edges": [...] },
+    "mode": "new",
+    "name": "Telekom WM iter 3"
+  }
+}
+```
+
+`mode: "new"` creates a fresh workflow. `mode: "replace"` overwrites the
+current canvas. `name` is optional for new mode (used as the workflow title).
+
+`result`: `{ workflowId, mode, nodeCount, edgeCount }`.
+
+**When to use this vs `generate`:**
+
+| Situation | Use |
+|---|---|
+| User wants a brand-new complex workflow + you're uncertain → safer to use the dedicated generator | **`generate`** |
+| You know the topology (e.g. user said "iteriere bis 8" → critic-pattern) | **`apply_workflow`** (3-6× faster) |
+| Tweaking an existing workflow's structure | **`apply_workflow`** with mode "replace" or `patch_node` for single fields |
+
+The workflow JSON shape is the same the `generate` route returns — see the
+schema in the Output schema section of the generator's system prompt. Key
+fields: nodes have `{id, type, label, config}`; edges have `{source, target}`.
+The post-processor will auto-inject the purity preamble for any prompt-node
+whose `{{id}}` is referenced in a downstream imageGen.
+
+# Working pattern: agent-vision + memory loop
+
+When the user starts a session, you should:
+
+1. **Read relevant memory** at session start:
+   ```
+   list_memory → see what exists
+   read_memory("projects/<slug>") if a project context is implied
+   read_memory("domains/<relevant>") for general expertise
+   ```
+
+2. **See the canvas** before suggesting changes:
+   ```
+   For any "this isn't right" complaint:
+   get_node_artifacts(nodeId) → look at the actual image/text
+   then diagnose, then act
+   ```
+
+3. **Iterate fast** with `apply_workflow` for known patterns:
+   ```
+   draft the JSON in your reasoning → apply_workflow → snapshot → done
+   ```
+
+4. **Capture learnings** at session end:
+   ```
+   write_memory("projects/<slug>", updated_content)
+   ```
+
+This loop is what makes the user feel like the tool gets smarter over time.
+Without it, every session starts from zero.
+
 # Uploading an image (when the user gives you a file)
 
 **Critical: never base64-encode an image into a JSON command.** That would

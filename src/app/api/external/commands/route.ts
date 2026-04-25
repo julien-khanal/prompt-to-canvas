@@ -23,6 +23,11 @@ const KNOWN_TYPES = new Set([
   "delete_skill",
   "add_edge",
   "remove_edge",
+  "get_node_artifacts",
+  "read_memory",
+  "write_memory",
+  "list_memory",
+  "apply_workflow",
 ]);
 
 export async function POST(req: NextRequest) {

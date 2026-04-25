@@ -22,6 +22,9 @@ import {
 import { fetchRefAsDataUrl, type BridgeCommand } from "./clientApi";
 import { validateApply } from "@/lib/chat/applyValidation";
 import { applyParameters, detectParameters } from "@/lib/workflow/parameters";
+import { parseWorkflow } from "@/lib/workflow/schema";
+import { applyGeneratorPolicies } from "@/lib/workflow/postProcess";
+import { downscaleManyForClaude } from "@/lib/util/downscaleForClaude";
 import type {
   CanvasEdge,
   CanvasNode,
@@ -75,6 +78,16 @@ export async function dispatchCommand(cmd: BridgeCommand): Promise<DispatchOutco
         return onAddEdge(payload);
       case "remove_edge":
         return onRemoveEdge(payload);
+      case "get_node_artifacts":
+        return await onGetNodeArtifacts(payload);
+      case "read_memory":
+        return await onReadMemory(payload);
+      case "write_memory":
+        return await onWriteMemory(payload);
+      case "list_memory":
+        return await onListMemory();
+      case "apply_workflow":
+        return await onApplyWorkflow(payload);
       default:
         return { ok: false, error: `unknown command type: ${cmd.type}` };
     }
@@ -466,5 +479,200 @@ export function buildBridgeSnapshot(
       activeSkillIds,
     },
     timestamp: Date.now(),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Karpathy-Stage-1 commands (added 2026-04-23): agent vision + memory + apply
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the artifacts (text output, images) of a single node, with images
+ * already downscaled to Claude's 5 MB-per-image limit. Cowork uses this
+ * to "see" the canvas without copy-paste — pass the returned images
+ * straight to Claude in the next turn.
+ */
+async function onGetNodeArtifacts(
+  p: Record<string, unknown>
+): Promise<DispatchOutcome> {
+  const nodeId = String(p.nodeId ?? "").trim();
+  if (!nodeId) return { ok: false, error: "nodeId required" };
+  const store = useCanvasStore.getState();
+  const node = store.nodes.find((n) => n.id === nodeId);
+  if (!node) return { ok: false, error: `node ${nodeId} not found` };
+
+  const data = node.data;
+  let text: string | undefined;
+  const rawImages: string[] = [];
+
+  switch (data.kind) {
+    case "prompt":
+      text = data.output;
+      break;
+    case "imageGen":
+      if (data.outputImages?.length) rawImages.push(...data.outputImages);
+      else if (data.outputImage) rawImages.push(data.outputImage);
+      break;
+    case "imageRef": {
+      const url = data.dataUrl ?? data.url;
+      if (url) rawImages.push(url);
+      break;
+    }
+    case "styleAnchor":
+      for (const r of data.references ?? []) if (r.dataUrl) rawImages.push(r.dataUrl);
+      if (data.distillate) text = data.distillate;
+      break;
+    case "output":
+      text = data.text;
+      if (data.images?.length) rawImages.push(...data.images);
+      break;
+    case "critic":
+      text = [
+        data.lastFeedback ? `feedback: ${data.lastFeedback}` : null,
+        data.lastSuggestion ? `suggestedPrompt: ${data.lastSuggestion}` : null,
+        data.lastScore !== undefined ? `score: ${data.lastScore}/${data.threshold}` : null,
+        data.iterations !== undefined ? `iterations: ${data.iterations}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      break;
+    case "array":
+      text = `items: ${data.items.join(" | ")}`;
+      break;
+    default:
+      break;
+  }
+
+  // Compress images to <5 MB each for Claude API compatibility.
+  const images = rawImages.length ? await downscaleManyForClaude(rawImages) : [];
+
+  return {
+    ok: true,
+    result: {
+      id: node.id,
+      kind: data.kind,
+      label: data.label,
+      status: data.status,
+      hasOutput: !!text || images.length > 0,
+      text: text ?? null,
+      images,
+      imageCount: images.length,
+    },
+  };
+}
+
+function memoryEndpoint(name: string): string {
+  return `/api/memory/${encodeURIComponent(name)}`;
+}
+
+async function onReadMemory(p: Record<string, unknown>): Promise<DispatchOutcome> {
+  const name = String(p.name ?? "").trim();
+  if (!name) return { ok: false, error: "name required" };
+  try {
+    const res = await fetch(memoryEndpoint(name));
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json.error ?? `http ${res.status}` };
+    return { ok: true, result: json };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "memory read failed",
+    };
+  }
+}
+
+async function onWriteMemory(p: Record<string, unknown>): Promise<DispatchOutcome> {
+  const name = String(p.name ?? "").trim();
+  const content = typeof p.content === "string" ? p.content : null;
+  if (!name) return { ok: false, error: "name required" };
+  if (content === null) return { ok: false, error: "content (string) required" };
+  try {
+    const res = await fetch(memoryEndpoint(name), {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json.error ?? `http ${res.status}` };
+    return { ok: true, result: json };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "memory write failed",
+    };
+  }
+}
+
+async function onListMemory(): Promise<DispatchOutcome> {
+  try {
+    const res = await fetch("/api/memory");
+    const json = await res.json();
+    if (!res.ok) return { ok: false, error: json.error ?? `http ${res.status}` };
+    return { ok: true, result: json };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "memory list failed",
+    };
+  }
+}
+
+/**
+ * Apply a workflow JSON drafted by an external agent (Cowork-style flow).
+ * Validates via the same parser the generator uses and runs the post-
+ * processors so purity rules etc. still apply. The bridge does NO LLM
+ * call here — that's the whole point: the agent already drafted, we just
+ * validate + apply. Round-trip ~2-5 s vs ~30-45 s for /api/generate-workflow.
+ */
+async function onApplyWorkflow(
+  p: Record<string, unknown>
+): Promise<DispatchOutcome> {
+  const wfRaw = p.workflow;
+  if (!wfRaw || typeof wfRaw !== "object")
+    return { ok: false, error: "workflow object required" };
+
+  const mode = p.mode === "replace" ? "replace" : "new";
+  const name =
+    typeof p.name === "string" && p.name.trim()
+      ? p.name.trim().slice(0, 80)
+      : undefined;
+
+  let workflow;
+  try {
+    workflow = applyGeneratorPolicies(parseWorkflow(wfRaw));
+  } catch (err) {
+    return {
+      ok: false,
+      error: `workflow validation failed: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  const { nodes, edges } = await workflowToCanvas(workflow);
+  const store = useCanvasStore.getState();
+
+  if (mode === "new") {
+    const fresh = await createWorkflow(name ?? "Cowork-applied workflow");
+    await setLastOpened(fresh.id);
+    store.setWorkflow(fresh.id, fresh.name, nodes, edges, []);
+    return {
+      ok: true,
+      result: {
+        workflowId: fresh.id,
+        mode: "new",
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+      },
+    };
+  }
+
+  store.replaceGraph(nodes, edges);
+  return {
+    ok: true,
+    result: {
+      workflowId: store.workflowId,
+      mode: "replace",
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+    },
   };
 }
